@@ -143,3 +143,31 @@ Auditoría, eventos encadenados, evidencia de destrucción de claves y replicaci
 no entran en esta retención automática: truncarlos rompería evidencia o cursores.
 Sólo podrán archivarse mediante un procedimiento firmado, verificable y con
 política legal explícita.
+
+## Exportación de métricas y trazas
+
+`JasbTelemetryExporter` entrega telemetría únicamente a una implementación de
+`TelemetryAdapter`. El adaptador vive fuera del proceso de negocio y recibe un
+paquete JASB firmado con uno de estos opcodes:
+
+```text
+500 TELEMETRY_METRICS
+501 TELEMETRY_TRACES
+```
+
+El payload usa `PhpSerializer`; no incorpora JSON ni permite que el destino
+consulte DataCore. Los SDK C/C++ exponen los mismos opcodes para construir
+adaptadores institucionales sin incrustarlos en el motor.
+
+Las métricas aceptan como máximo 1,024 counters, gauges y timings por clase, con
+nombres allowlisted y números finitos. Las trazas aceptan lotes de hasta 1,000 y
+exportan sólo nivel, evento, instante, PID y contexto operativo allowlisted:
+request/trace/span ID, método, ruta lógica, estado, duración, código de error,
+componente y operación. No se exportan paths HTTP concretos, usuarios, tokens,
+cookies, contraseñas, headers ni contexto arbitrario.
+
+El packet JASB limita el lote a 1 MiB y su HMAC SALK detecta alteración, pero no
+cifra por sí solo. Un adaptador que cruce máquina o red debe envolverlo con
+`SalkEncryptedEnvelope` o transportarlo por TLS autenticado. La interfaz no
+incluye adaptadores de proveedores dentro del núcleo; una falla externa se
+normaliza como `telemetry_adapter_failed` y no modifica las fuentes originales.

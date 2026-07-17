@@ -61,6 +61,7 @@ JAS turns those concerns into explicit definitions:
 | Continuity | Encrypted signed `.jahb` backups, empty-tree restore, retention and snapshot point-in-time |
 | Web security | Governed router, CSRF, secure headers, rate limiting, safe HTML and forms |
 | Scale foundations | Persistent queues, leases, backpressure, workers, sharding, quorum and fencing |
+| Operations | Health probes, disk admission, retention and signed JASB telemetry export |
 | Tooling | Generators, analyzer, Language Intelligence Engine, health checks and generated documentation |
 
 Development follows the phase gates in

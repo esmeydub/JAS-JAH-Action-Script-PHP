@@ -21,6 +21,8 @@ final class Opcodes
     public const CLUSTER_HEARTBEAT = 401;
     public const REPLICATION_EXPORT = 410;
     public const REPLICATION_IMPORT = 411;
+    public const TELEMETRY_METRICS = 500;
+    public const TELEMETRY_TRACES = 501;
     public const RESULT = 900;
     public const ERROR = 901;
 }

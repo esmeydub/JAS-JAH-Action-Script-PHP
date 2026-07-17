@@ -29,6 +29,7 @@ nota de migración; una heredada no puede usarse en código nuevo.
 - `Jah\JAS\Cluster`, `Consensus`, `Replication`, `Sharding`, `Snapshot`, `Sync` y `Balance`.
 - `Jah\JAS\ObjectGraph` y `Jah\JAS\Dispatch`.
 - `Jah\JAS\Tooling` y la interfaz `bin/jas`.
+- `Jah\JAS\Observability`, incluidos los adaptadores externos de telemetría JASB.
 
 Estas API están probadas, pero no tendrán estabilidad contractual hasta completar
 las fases de continuidad, carga distribuida y experiencia de desarrollo.
