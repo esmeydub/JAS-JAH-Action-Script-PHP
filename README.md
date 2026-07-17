@@ -61,7 +61,7 @@ JAS turns those concerns into explicit definitions:
 | Continuity | Encrypted signed `.jahb` backups, empty-tree restore, retention and snapshot point-in-time |
 | Web security | Governed router, CSRF, secure headers, rate limiting, safe HTML and forms |
 | Scale foundations | Persistent queues, leases, backpressure, workers, sharding, quorum and fencing |
-| Operations | Health probes, disk admission, retention and signed JASB telemetry export |
+| Operations | Health probes, read-only secure panel, disk admission, retention and signed JASB telemetry export |
 | Tooling | Generators, analyzer, Language Intelligence Engine, health checks and generated documentation |
 
 Development follows the phase gates in
@@ -204,6 +204,7 @@ php bin/jas disk:status
 php bin/jas retention:run --force
 curl --fail http://127.0.0.1/health/live
 curl --fail http://127.0.0.1/health/ready
+curl -H "Authorization: Bearer $JAS_OPERATIONS_TOKEN" http://127.0.0.1/operations
 php bin/jas test
 php bin/jas make:project /tmp/jas-demo "JAS Demo"
 php bin/jas analyze /tmp/jas-demo

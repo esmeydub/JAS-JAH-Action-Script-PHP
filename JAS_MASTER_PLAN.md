@@ -369,6 +369,9 @@ Estado: **en progreso**
 - `QueueIsolationPolicy` separa capacidad activa y leases por partición de acción; una partición saturada se omite al arrendar y no consume la reserva de otros dominios.
 - Colas grandes reservan por defecto 20 % de su capacidad frente a un único dominio; políticas explícitas permiten cuotas distintas para social, pagos u otros límites institucionales.
 - La prueba satura `social` con prioridad alta y consumidor limitado mientras `payments` sigue aceptando, arrendando y completando trabajos; estadísticas reportan saturación por partición: `JAS SATURATION ISOLATION: PASS`.
+- `OperationalPanelEndpoint` entrega un panel HTML de sólo lectura generado en PHP, exige `operations.view` antes de consultar fuentes y falla cerrado cuando identidad o telemetría no están disponibles.
+- El panel limita y normaliza health, métricas, colas y particiones; excluye payloads, excepciones, secretos y rutas internas, escapa todo contenido y no contiene JavaScript ni JSON.
+- CSP, `no-store`, `nosniff`, bloqueo de frames, respuesta 503 degradada y pruebas de autorización, inyección y contención quedan verificadas por `JAS OPERATIONAL PANEL: PASS`.
 
 ### Alcance
 
@@ -450,7 +453,7 @@ cambio futuro de estado debe actualizar simultáneamente la fase y esta tabla.
 | 5 | Completada | Identidad y acceso institucional: `php tests/test_jas_identity.php` y `php tests/test_jas_security.php` |
 | 6 | Completada | JAS Web: `php tests/test_jas_web.php`, `php tests/test_jas_accessibility.php` y `php tests/test_jas_upload.php` |
 | 7 | Completada | Tooling y ciclo de proyecto: `php tests/test_jas_tooling.php`, `php tests/test_jas_language_engine.php`, `php tests/test_jas_project_lifecycle.php` y `php bin/jas static` |
-| 8 | En progreso | Operación segura: `php tests/test_jas_dead_letter.php`, `php tests/test_jas_health.php`, `php tests/test_jas_disk_pressure.php`, `php tests/test_jas_retention.php`, `php tests/test_jas_telemetry_export.php`, `php tests/test_jas_saturation_isolation.php`; gate transversal: `php tests/run_all.php` |
+| 8 | En progreso | Operación segura: `php tests/test_jas_dead_letter.php`, `php tests/test_jas_health.php`, `php tests/test_jas_disk_pressure.php`, `php tests/test_jas_retention.php`, `php tests/test_jas_telemetry_export.php`, `php tests/test_jas_saturation_isolation.php`, `php tests/test_jas_operational_panel.php`; gate transversal: `php tests/run_all.php` |
 | 9 | Pendiente | No iniciada |
 | 10 | Pendiente | No iniciada |
 
@@ -459,15 +462,14 @@ registrado es `JAS SUITE: PASS`.
 
 ## Próxima acción obligatoria
 
-Continuar **Fase 8 — Escala y operación** con el panel operativo seguro y después
-generar la evidencia reproducible de operación sostenida de siete días. No
-iniciar la Fase 9 hasta cerrar y registrar todos los criterios de salida de la
-Fase 8.
+Continuar **Fase 8 — Escala y operación** con la evidencia reproducible de
+operación sostenida de siete días. No iniciar la Fase 9 hasta cerrar y registrar
+todos los criterios de salida de la Fase 8.
 
 ## Resumen de trabajo restante
 
 - Fases 1–7: completadas.
-- Fase 8: faltan el panel operativo seguro y la evidencia real de siete días;
+- Fase 8: falta la evidencia real de siete días; el panel operativo seguro,
   balanceo, sharding, backpressure, DLQ, health, disco, retención, telemetría y
   aislamiento ya tienen pruebas reproducibles.
 - Fase 9: pendiente completa; incluye fallos, red, rotación bajo carga, threat

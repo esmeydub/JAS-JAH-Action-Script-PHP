@@ -81,6 +81,30 @@ contenedores.
 No se debe usar `/health` como sonda pública ni incluir el token en URLs, logs o
 manifiestos versionados.
 
+## Panel operativo seguro
+
+`public/operations.php` ofrece una vista HTML generada completamente en PHP,
+sin JavaScript, peticiones en segundo plano ni JSON. Es sólo lectura: muestra
+readiness, métricas allowlisted, estados agregados de cola y saturación por
+partición, pero no incluye payloads, errores, identidades, rutas internas,
+credenciales ni botones que ejecuten comandos.
+
+La clase `OperationalPanelEndpoint` exige el permiso `operations.view` antes de
+consultar cualquier fuente. Una aplicación institucional debe inyectar un
+autorizador respaldado por `InstitutionalIdentityService::allows()` y entregar
+el token de sesión mediante `Authorization: Bearer`. El script público autónomo
+usa `JAS_OPERATIONS_TOKEN` de al menos 32 bytes como credencial de despliegue;
+falla cerrado si no está configurada y debe quedar detrás del plano privado de
+administración. El token nunca se acepta en la URL.
+
+Los nombres, cantidades y tamaños se normalizan con límites fijos antes de
+renderizarse; todo texto pasa por `Html`, los proveedores no confiables no pueden
+inyectar marcado y sus excepciones se convierten en estado no disponible. La
+respuesta degradada usa 503 y `Retry-After`; todas las respuestas aplican CSP,
+`no-store`, `nosniff`, bloqueo de frames y políticas restrictivas. La hoja
+`operations.css` es presentación estática local y el panel no contiene código
+ejecutable del cliente.
+
 ## Presión de disco y admisión de escrituras
 
 ```bash
