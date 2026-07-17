@@ -23,6 +23,21 @@ final class Opcodes
     public const REPLICATION_IMPORT = 411;
     public const TELEMETRY_METRICS = 500;
     public const TELEMETRY_TRACES = 501;
+    public const LANGUAGE_INITIALIZE = 600;
+    public const LANGUAGE_INITIALIZED = 601;
+    public const LANGUAGE_DOCUMENT_OPEN = 610;
+    public const LANGUAGE_DOCUMENT_CHANGE = 611;
+    public const LANGUAGE_DOCUMENT_CLOSE = 612;
+    public const LANGUAGE_HOVER = 620;
+    public const LANGUAGE_DEFINITION = 621;
+    public const LANGUAGE_REFERENCES = 622;
+    public const LANGUAGE_PREPARE_RENAME = 623;
+    public const LANGUAGE_RENAME = 624;
+    public const LANGUAGE_DIAGNOSTICS = 630;
+    public const LANGUAGE_SHUTDOWN = 640;
+    public const LANGUAGE_EXIT = 641;
+    public const LANGUAGE_RESPONSE = 690;
+    public const LANGUAGE_ERROR = 691;
     public const RESULT = 900;
     public const ERROR = 901;
 }

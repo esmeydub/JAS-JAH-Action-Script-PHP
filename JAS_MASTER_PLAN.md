@@ -399,7 +399,7 @@ Estado: **completada**
 
 ## Puerta 8.5 — LSP estándar externo
 
-Estado: **pendiente; obligatoria antes de la Fase 9**
+Estado: **en progreso; L0 completada**
 
 Después de cerrar la Fase 8 se ejecutará íntegramente `JAS_LSP_PLAN.md`. El
 editor hablará LSP/JSON-RPC únicamente con `jas-lsp-bridge` externo en C++; el
@@ -412,6 +412,13 @@ ni incorporarán el bridge como dependencia del núcleo.
 - Rename devuelve `WorkspaceEdit` negociado y no modifica archivos desde el servidor.
 - Bridge, motor PHP y framing JASB pasan pruebas de protocolo, integración, editores, fuzzing y seguridad.
 - Existe un binario externo firmado con instrucciones reproducibles y sin dependencia instalada para el usuario.
+
+### Avance verificado
+
+- L0 completada: opcodes 600–691, mensajes tipados request/notificación/respuesta/error y payload TLV canónico JASL sin JSON.
+- PHP valida campos exactos, IDs, Unicode, límites y firma JASB; C/C++ comparte opcodes y valida estructura/profundidad sin asignar memoria.
+- Round-trip PHP → JASB/JASL → C validado con opcode 600; amenazas, procesos y pendientes honestos documentados en `docs/JAS_LSP_SECURITY.md`.
+- Evidencia reproducible: `php tests/test_jas_language_protocol.php` y compilación C con `-Wall -Wextra -Werror` en PASS.
 
 No se iniciará la Fase 9 hasta cerrar esta puerta y registrar evidencia.
 
@@ -479,7 +486,7 @@ cambio futuro de estado debe actualizar simultáneamente la fase y esta tabla.
 | 6 | Completada | JAS Web: `php tests/test_jas_web.php`, `php tests/test_jas_accessibility.php` y `php tests/test_jas_upload.php` |
 | 7 | Completada | Tooling y ciclo de proyecto: `php tests/test_jas_tooling.php`, `php tests/test_jas_language_engine.php`, `php tests/test_jas_project_lifecycle.php` y `php bin/jas static` |
 | 8 | Completada | Operación segura y calificación acelerada: `php tests/test_jas_operations_qualification.php 500`; 10,500/10,500 operaciones, integridad PASS; gate transversal: `php tests/run_all.php` |
-| 8.5 | Pendiente | LSP estándar externo: `JAS_LSP_PLAN.md`; se inicia únicamente después de cerrar Fase 8 |
+| 8.5 | En progreso | L0 contratos binarios: `php tests/test_jas_language_protocol.php`; siguiente L1 DocumentStore/Unicode según `JAS_LSP_PLAN.md` |
 | 9 | Pendiente | No iniciada |
 | 10 | Pendiente | No iniciada |
 
@@ -488,14 +495,13 @@ registrado es `JAS SUITE: PASS`.
 
 ## Próxima acción obligatoria
 
-Cerrar íntegramente la **Puerta 8.5 — LSP estándar externo** siguiendo
-`JAS_LSP_PLAN.md`. No iniciar la Fase 9 antes de registrar su cierre.
+Continuar **Puerta 8.5 — LSP estándar externo** con L1: `DocumentStore`,
+versiones y posiciones Unicode. No iniciar la Fase 9 antes de cerrar el plan.
 
 ## Resumen de trabajo restante
 
 - Fases 1–8: completadas.
-- Puerta 8.5: pendiente completa según `JAS_LSP_PLAN.md`; se ejecutará antes de
-  la Fase 9 por decisión normativa del proyecto.
+- Puerta 8.5: L0 completada; L1–L7 pendientes según `JAS_LSP_PLAN.md`.
 - Fase 9: pendiente completa; incluye fallos, red, rotación bajo carga, threat
   model y revisiones externas. La revisión criptográfica y el penetration test
   requieren especialistas independientes y no pueden autodeclararse.

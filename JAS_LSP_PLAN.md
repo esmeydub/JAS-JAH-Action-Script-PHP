@@ -1,6 +1,6 @@
 # Plan normativo del servidor LSP de JAS
 
-Estado: **pendiente; obligatorio después de la Fase 8 y antes de la Fase 9**
+Estado: **en progreso; L0 completada, L1 es la siguiente acción**
 
 ## Objetivo y frontera inmutable
 
@@ -21,15 +21,22 @@ Editor ⇄ LSP 3.18 / JSON-RPC ⇄ jas-lsp-bridge (C++) ⇄ JASB ⇄ motor semá
 
 ## Fase L0 — Modelo de amenazas y contratos
 
+Estado: **completada**
+
 - Documentar procesos, pipes, claves efímeras, workspace autorizado y límites de confianza.
 - Definir opcodes JASB tipados para lifecycle, documentos, navegación, rename y diagnósticos.
 - Separar requests con ID de notificaciones sin ID.
 - Admitir IDs LSP string o enteros y correlacionarlos sin pérdida con JASB.
 - Versionar contratos, errores, tamaños y compatibilidad.
 
-Cierre: round-trip PHP ⇄ JASB ⇄ C/C++ para todos los contratos y rechazo de versiones/opcodes desconocidos.
+Cierre verificado: `LanguageMessage`, `LanguagePayloadCodec` y
+`LanguageProtocolCodec` reservan opcodes 600–691, validan campos/direcciones y
+realizan round-trip firmado. Los SDK C/C++ comparten constantes y validan TLV
+JASL; el modelo de amenazas está en `docs/JAS_LSP_SECURITY.md`.
 
 ## Fase L1 — Documentos y posiciones
+
+Estado: **pendiente; siguiente acción obligatoria**
 
 - Crear `DocumentStore` con URI, versión, contenido, hash y estado.
 - El documento abierto recibido por `didOpen`/`didChange` es autoritativo y no se relee del disco.

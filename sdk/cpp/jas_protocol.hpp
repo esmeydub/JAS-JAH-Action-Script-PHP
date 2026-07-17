@@ -19,5 +19,8 @@ public:
     std::string_view requestId() const noexcept { return {reinterpret_cast<const char*>(view_.request_id), view_.request_id_length}; }
     std::string_view objectId() const noexcept { return {reinterpret_cast<const char*>(view_.object_id), view_.object_id_length}; }
     std::span<const std::uint8_t> payload() const noexcept { return {view_.payload, view_.payload_length}; }
+    bool languagePayloadValid() const noexcept {
+        return jas_language_payload_validate(view_.payload, view_.payload_length) == 0;
+    }
 };
 }
