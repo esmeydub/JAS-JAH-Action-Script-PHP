@@ -1,6 +1,6 @@
 # Plan normativo del servidor LSP de JAS
 
-Estado: **en progreso; L0–L5 completadas, L6 es la siguiente acción**
+Estado: **en progreso; L0–L6 completadas, L7 es la siguiente acción**
 
 ## Objetivo y frontera inmutable
 
@@ -153,6 +153,8 @@ separado de LSP.
 
 ## Fase L6 — Seguridad y resiliencia
 
+Estado: **completada**
+
 - Límites de Content-Length, profundidad, strings, arrays, documentos y requests pendientes.
 - UTF-8 estricto en JSON-RPC y conversión de posición acotada.
 - Workspace canónico, defensa symlink/TOCTOU y rechazo de URI remotas por defecto.
@@ -163,12 +165,27 @@ separado de LSP.
 
 Cierre: no hay ejecución, traversal, fuga sensible, crecimiento ilimitado ni caída persistente.
 
-Avance: límites de framing/árbol/strings/requests, timeout interno, UTF-8 estricto, paths
-canónicos, clave por descriptor, entorno y FDs mínimos, errores redactados y
-pruebas ASan/UBSan ya están aplicados al bridge Linux. Cancelación, rate
-limiting temporal, sandbox sin red y fuzzing prolongado siguen pendientes.
+Cierre verificado: además de los límites de framing, árbol, strings, documentos
+y 256 requests pendientes, el bridge aplica un token bucket de 250 mensajes por
+segundo con ráfaga máxima de 512. El exceso se informa una sola vez y después se
+descarta sin crear estado. Cada request conserva su timeout interno inmutable.
+
+En Linux, el hijo PHP queda bajo `no_new_privs`, seccomp y Landlock antes de
+`exec`: no puede crear sockets ni escribir en el workspace o fuera de él; sólo
+puede leer el binario, runtime PHP, árbol JAS autorizado y workspace. Un kernel
+sin Landlock o una ejecución como root hace fallar el arranque cerrado. La clave efímera sigue entrando
+por el único descriptor adicional allowlisted.
+
+Las pruebas sustituyen deliberadamente el backend, intentan sockets y escritura,
+presionan timeout/backpressure/rate limiting y procesan 500 mensajes JSON-RPC
+malformados o prohibidos antes de completar un lifecycle válido. Las suites
+JASB/PHP aportan además corrupción binaria, replay, Unicode, paths y lifecycle.
+`make -C sdk/cpp/lsp test` registra `JAS LSP BRIDGE SECURITY BOUNDARY: PASS` y
+`JAS LSP PROLONGED FUZZ: PASS`.
 
 ## Fase L7 — Interoperabilidad y distribución
+
+Estado: **pendiente; siguiente acción obligatoria**
 
 - Probar contratos, JSON-RPC, integración completa y seguridad.
 - Validar Neovim, Emacs/Eglot, Sublime LSP y al menos otro cliente configurable.

@@ -1,9 +1,9 @@
 # Frontera de seguridad del servidor de lenguaje JAS
 
-Estado: L0–L5 completadas; bridge, lifecycle, capacidades, aislamiento, timeout,
-cancelación, backpressure y rename negociado verificados. El hardening L6,
-interoperabilidad y distribución siguen
-abiertas; JAS todavía no se presenta como servidor LSP terminado.
+Estado: L0–L6 completadas; bridge, lifecycle, capacidades, aislamiento, timeout,
+cancelación, backpressure, rename negociado y hardening verificados.
+Interoperabilidad y distribución L7 siguen abiertas; JAS todavía no se presenta
+como servidor LSP terminado.
 
 ## Procesos y zonas de confianza
 
@@ -96,7 +96,9 @@ implementar posiciones y rangos Unicode en L1.
 | Bridge comprometido | revalidación completa en PHP, allowlist de opcodes y ausencia de acceso a DataCore |
 | Fuga en errores | códigos estables, mensajes acotados y stderr redactado |
 | Agotamiento por concurrencia | máximo de requests pendientes, cancelación, timeout y backpressure |
-| Escritura inesperada | LSP sólo devuelve `WorkspaceEdit`; el editor decide y aplica |
+| Ráfaga de mensajes | token bucket interno, respuesta única y descarte sin asignar estado |
+| Red desde PHP | seccomp deniega sockets y operaciones de red antes de ejecutar PHP |
+| Escritura inesperada | LSP sólo devuelve `WorkspaceEdit`; Landlock deja runtime, JAS y workspace en sólo lectura |
 
 ## Supuestos y pendientes explícitos
 
@@ -108,8 +110,9 @@ implementar posiciones y rangos Unicode en L1.
   timeout y fallo cerrado del backend están implementados.
 - La validación C actual comprueba framing TLV y límites estructurales; el bridge
   añadirá UTF-8 estricto, nombres de campo y semántica antes de publicar binarios.
-- No hay certificación externa. Fuzzing, sandbox por sistema operativo, revisión
-  criptográfica y firma de distribución siguen siendo criterios de fases posteriores.
+- No hay certificación externa. El aislamiento L6 está implementado y probado en
+  Linux; revisión criptográfica independiente y firma de distribución siguen
+  siendo criterios de fases posteriores.
 
 ## Controles implementados en el bridge Linux
 
@@ -120,6 +123,9 @@ implementar posiciones y rangos Unicode en L1.
 - SALK se verifica con comparación constante. También se comprueban versión,
   flags, timestamp, opcode, sesión, longitudes e ID de respuesta activo.
 - Hay un máximo de 256 requests simultáneos y no se admiten IDs activos repetidos.
+- Un token bucket compilado admite 250 mensajes por segundo y ráfaga 512. El
+  primer exceso recibe `-32001`; los siguientes se descartan hasta recuperar
+  capacidad, sin crear requests ni reenviar trabajo a PHP.
 - `$/cancelRequest` sólo puede marcar un ID activo; nunca produce un opcode ni
   ejecuta una orden en PHP. La respuesta posterior se sustituye por `-32800` y
   la operación interna permanece limitada por el timeout fail-closed.
@@ -129,6 +135,14 @@ implementar posiciones y rangos Unicode en L1.
 - PHP se ejecuta con paths canónicos, argv fijo, entorno vacío, FDs mínimos,
   umask 077, core dumps deshabilitados y `no_new_privs`; stderr va a un sumidero
   acotado para que un error no filtre rutas, secretos o contenido al editor.
+- El hijo rechaza ejecutarse con UID o GID efectivo cero; el bridge no debe
+  instalarse ni iniciarse como root.
+- Antes de `exec`, seccomp deniega sockets, conexión, escucha y envío/recepción.
+  También bloquea `io_uring`, creación de procesos, `execveat`, BPF y acceso a
+  memoria de otros procesos para cerrar rutas alternativas de evasión.
+  Landlock permite leer únicamente el ejecutable/runtime PHP, el árbol JAS y el
+  workspace canónicos; no concede ningún derecho de escritura. La ausencia de
+  Landlock en Linux aborta el hijo en vez de degradar silenciosamente.
 - El material de clave se limpia de la memoria del bridge al transferirse y al
   destruir el canal. Los mensajes externos de error son estables y redactados.
 
@@ -137,5 +151,6 @@ La caída del servicio PHP cierra la sesión completa; no se intenta reconstruir
 silenciosamente documentos ni requests parciales. El cliente puede iniciar un
 bridge nuevo desde cero. Cada request expira a los 15 segundos mediante un valor
 compilado que el editor no puede ampliar; el lector también limita frames PHP
-parciales. Quedan pendientes cancelación completa, sandbox sin red, fuzzing
-prolongado y revisión independiente.
+parciales. Las pruebas L6 cubren un backend sustituido, escritura, sockets,
+ráfagas y 500 mensajes malformados/prohibidos seguidos de lifecycle válido.
+Quedan pendientes interoperabilidad, artefactos firmados y revisión independiente.

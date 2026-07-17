@@ -3,6 +3,7 @@ set -eu
 
 bridge=${1:-sdk/cpp/lsp/jas-lsp-bridge}
 timeout_bridge=${2:-}
+rate_bridge=${3:-}
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 workspace=$(mktemp -d /tmp/jas_lsp_bridge.XXXXXX)
 input=$(mktemp /tmp/jas_lsp_input.XXXXXX)
@@ -11,7 +12,7 @@ attack_input=$(mktemp /tmp/jas_lsp_attack_input.XXXXXX)
 attack_output=$(mktemp /tmp/jas_lsp_attack_output.XXXXXX)
 attack_error=$(mktemp /tmp/jas_lsp_attack_error.XXXXXX)
 fake_cli=$(mktemp /tmp/jas_lsp_fake_cli.XXXXXX.php)
-trap 'rm -rf "$workspace" "$input" "$output" "$attack_input" "$attack_output" "$attack_error" "$fake_cli"' EXIT HUP INT TERM
+trap 'rm -rf "$workspace" "$input" "$output" "$attack_input" "$attack_output" "$attack_error" "$fake_cli" "${outside:-}"' EXIT HUP INT TERM
 
 mkdir -p "$workspace"
 uri="file://$workspace"
@@ -87,7 +88,29 @@ test "$status" -eq 1
 test ! -s "$attack_output"
 grep -q '^JAS LSP bridge terminated after backend failure$' "$attack_error"
 
+# Landlock impide que un backend sustituido escriba dentro o fuera del workspace.
+outside="${workspace}-outside"
+printf '%s\n' original > "$outside"
+printf '%s\n' '<?php @file_put_contents($argv[3] . "/inside-write", "contaminated"); @file_put_contents($argv[3] . "-outside", "contaminated");' > "$fake_cli"
+set +e
+"$bridge" "$(command -v php)" "$fake_cli" "$workspace" < /dev/null > "$attack_output" 2> "$attack_error"
+status=$?
+set -e
+test "$status" -eq 1
+test ! -e "$workspace/inside-write"
+test "$(cat "$outside")" = original
+rm -f "$outside"
+
 if test -n "$timeout_bridge"; then
+    # Seccomp impide incluso sockets locales; sin el filtro el backend se colgaría.
+    printf '%s\n' '<?php $pair = @stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP); if (is_array($pair)) { while (true) { usleep(100000); } }' > "$fake_cli"
+    set +e
+    "$timeout_bridge" "$(command -v php)" "$fake_cli" "$workspace" < /dev/null > "$attack_output" 2> "$attack_error"
+    status=$?
+    set -e
+    test "$status" -eq 1
+    grep -q '^JAS LSP bridge terminated after backend failure$' "$attack_error"
+
     # Backend colgado: el watchdog mata PHP y corta la sesión completa.
     printf '%s\n' '<?php while (true) { usleep(100000); }' > "$fake_cli"
     printf 'Content-Length: %s\r\n\r\n%s' "${#body_initialize}" "$body_initialize" > "$attack_input"
@@ -114,6 +137,27 @@ if test -n "$timeout_bridge"; then
     set -e
     test "$status" -eq 1
     grep -q '"id":1256,"error":{"code":-32000,"message":"Server request limit reached"}' "$attack_output"
+fi
+
+if test -n "$rate_bridge"; then
+    # Una ráfaga consume el bucket; se informa una vez y el resto se descarta.
+    printf '%s\n' '<?php while (!feof(STDIN)) { fread(STDIN, 8192); }' > "$fake_cli"
+    : > "$attack_input"
+    request=1
+    while test "$request" -le 40; do
+        pressure=$(printf '{"jsonrpc":"2.0","id":%s,"method":"workspace/executeCommand","params":{"command":"forbidden"}}' "$request")
+        printf 'Content-Length: %s\r\n\r\n%s' "${#pressure}" "$pressure" >> "$attack_input"
+        request=$((request + 1))
+    done
+    set +e
+    "$rate_bridge" "$(command -v php)" "$fake_cli" "$workspace" < "$attack_input" > "$attack_output" 2> "$attack_error"
+    status=$?
+    set -e
+    test "$status" -eq 1
+    grep -q '"id":33,"error":{"code":-32001,"message":"Language message rate limit exceeded"}' "$attack_output"
+    ! grep -q '"id":34' "$attack_output"
+    count=$(grep -o 'Language message rate limit exceeded' "$attack_output" | wc -l)
+    test "$count" -eq 1
 fi
 printf '%s\n' 'JAS STANDARD LSP BRIDGE LIFECYCLE: PASS'
 printf '%s\n' 'JAS LSP BRIDGE SECURITY BOUNDARY: PASS'

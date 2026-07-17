@@ -17,7 +17,12 @@
 #include <fcntl.h>
 #include <limits.h>
 #ifdef __linux__
+#include <linux/audit.h>
+#include <linux/filter.h>
+#include <linux/landlock.h>
+#include <linux/seccomp.h>
 #include <sys/prctl.h>
+#include <sys/syscall.h>
 #endif
 
 #include <algorithm>
@@ -46,12 +51,24 @@ constexpr std::size_t MAX_DEPTH = 16;
 constexpr std::size_t MAX_ITEMS = 4096;
 constexpr std::size_t MAX_JSON_ITEMS = 65536;
 constexpr std::size_t MAX_PENDING_REQUESTS = 256;
+#ifndef JAS_LSP_MESSAGE_RATE_PER_SECOND
+#define JAS_LSP_MESSAGE_RATE_PER_SECOND 250
+#endif
+#ifndef JAS_LSP_MESSAGE_RATE_BURST
+#define JAS_LSP_MESSAGE_RATE_BURST 512
+#endif
+constexpr double MESSAGE_RATE_PER_SECOND = JAS_LSP_MESSAGE_RATE_PER_SECOND;
+constexpr double MESSAGE_RATE_BURST = JAS_LSP_MESSAGE_RATE_BURST;
 #ifndef JAS_LSP_REQUEST_TIMEOUT_MS
 #define JAS_LSP_REQUEST_TIMEOUT_MS 15000
 #endif
 constexpr auto REQUEST_TIMEOUT = std::chrono::milliseconds(JAS_LSP_REQUEST_TIMEOUT_MS);
 static_assert(JAS_LSP_REQUEST_TIMEOUT_MS >= 100 && JAS_LSP_REQUEST_TIMEOUT_MS <= 120000,
     "JAS LSP request timeout must remain bounded");
+static_assert(JAS_LSP_MESSAGE_RATE_PER_SECOND >= 1 && JAS_LSP_MESSAGE_RATE_PER_SECOND <= 10000,
+    "JAS LSP message rate must remain bounded");
+static_assert(JAS_LSP_MESSAGE_RATE_BURST >= 1 && JAS_LSP_MESSAGE_RATE_BURST <= 10000,
+    "JAS LSP message burst must remain bounded");
 constexpr std::uint16_t OP_INITIALIZE = 600, OP_INITIALIZED = 601;
 constexpr std::uint16_t OP_OPEN = 610, OP_CHANGE = 611, OP_CLOSE = 612;
 constexpr std::uint16_t OP_HOVER = 620, OP_DEFINITION = 621, OP_REFERENCES = 622;
@@ -80,6 +97,21 @@ public:
     int code() const noexcept { return code_; }
 private:
     int code_;
+};
+
+class MessageRateLimiter {
+    double tokens_=MESSAGE_RATE_BURST;
+    std::chrono::steady_clock::time_point last_=std::chrono::steady_clock::now();
+    bool rejectionReported_=false;
+public:
+    enum Decision { Allow, RejectAndReport, RejectSilently };
+    Decision consume() {
+        const auto now=std::chrono::steady_clock::now();
+        tokens_=std::min(MESSAGE_RATE_BURST,tokens_+std::chrono::duration<double>(now-last_).count()*MESSAGE_RATE_PER_SECOND);last_=now;
+        if(tokens_>=1.0){tokens_-=1.0;rejectionReported_=false;return Allow;}
+        if(!rejectionReported_){rejectionReported_=true;return RejectAndReport;}
+        return RejectSilently;
+    }
 };
 
 bool validUtf8(const std::string& value) {
@@ -459,6 +491,102 @@ public:
 
 void interruptHandler(int) {}
 
+#ifdef __linux__
+std::string parentPath(const std::string& path) {
+    const auto separator=path.find_last_of('/');
+    if(separator==std::string::npos||separator==0)return "/";
+    return path.substr(0,separator);
+}
+
+void confineChildFilesystem(const std::string& php,const std::string& jas,const std::string& workspace) {
+    const int abi=static_cast<int>(syscall(__NR_landlock_create_ruleset,nullptr,0,LANDLOCK_CREATE_RULESET_VERSION));
+    if(abi<1)_exit(126);
+    std::uint64_t handled=LANDLOCK_ACCESS_FS_EXECUTE|LANDLOCK_ACCESS_FS_WRITE_FILE
+        |LANDLOCK_ACCESS_FS_READ_FILE|LANDLOCK_ACCESS_FS_READ_DIR|LANDLOCK_ACCESS_FS_REMOVE_DIR
+        |LANDLOCK_ACCESS_FS_REMOVE_FILE|LANDLOCK_ACCESS_FS_MAKE_CHAR|LANDLOCK_ACCESS_FS_MAKE_DIR
+        |LANDLOCK_ACCESS_FS_MAKE_REG|LANDLOCK_ACCESS_FS_MAKE_SOCK|LANDLOCK_ACCESS_FS_MAKE_FIFO
+        |LANDLOCK_ACCESS_FS_MAKE_BLOCK|LANDLOCK_ACCESS_FS_MAKE_SYM;
+    if(abi>=2)handled|=LANDLOCK_ACCESS_FS_REFER;
+    if(abi>=3)handled|=LANDLOCK_ACCESS_FS_TRUNCATE;
+    struct landlock_ruleset_attr rulesetAttribute{};
+    rulesetAttribute.handled_access_fs=handled;
+    const int ruleset=static_cast<int>(syscall(__NR_landlock_create_ruleset,&rulesetAttribute,sizeof(rulesetAttribute),0));
+    if(ruleset<0)_exit(126);
+    const std::uint64_t readOnly=LANDLOCK_ACCESS_FS_READ_FILE|LANDLOCK_ACCESS_FS_READ_DIR;
+    const auto allow=[&](const std::string& path,std::uint64_t access,bool required) {
+        const int descriptor=open(path.c_str(),O_PATH|O_CLOEXEC);
+        if(descriptor<0){if(required){close(ruleset);_exit(126);}return;}
+        struct stat info{};
+        if(fstat(descriptor,&info)!=0){close(descriptor);close(ruleset);_exit(126);}
+        if(!S_ISDIR(info.st_mode))access&=LANDLOCK_ACCESS_FS_EXECUTE|LANDLOCK_ACCESS_FS_WRITE_FILE
+            |LANDLOCK_ACCESS_FS_READ_FILE|LANDLOCK_ACCESS_FS_TRUNCATE;
+        const struct landlock_path_beneath_attr rule{access,descriptor};
+        if(syscall(__NR_landlock_add_rule,ruleset,LANDLOCK_RULE_PATH_BENEATH,&rule,0)!=0){close(descriptor);close(ruleset);_exit(126);}
+        close(descriptor);
+    };
+    allow(php,readOnly|LANDLOCK_ACCESS_FS_EXECUTE,true);
+    allow(jas,readOnly,true);
+    allow(workspace,readOnly,true);
+    const auto jasParent=parentPath(jas);
+    if(jasParent.size()>4&&jasParent.compare(jasParent.size()-4,4,"/bin")==0)allow(parentPath(jasParent),readOnly,true);
+    for(const char* runtime:{"/usr/lib","/usr/lib64","/lib","/lib64","/etc/php","/etc/ld.so.cache","/etc/localtime"})
+        allow(runtime,readOnly|LANDLOCK_ACCESS_FS_EXECUTE,false);
+    if(syscall(__NR_landlock_restrict_self,ruleset,0)!=0){close(ruleset);_exit(126);}
+    close(ruleset);
+}
+
+void denyChildNetwork() {
+#if defined(__x86_64__)
+    constexpr std::uint32_t architecture=AUDIT_ARCH_X86_64;
+#elif defined(__aarch64__)
+    constexpr std::uint32_t architecture=AUDIT_ARCH_AARCH64;
+#else
+#error "JAS LSP seccomp requires an audited architecture"
+#endif
+#define JAS_DENY_SYSCALL(number) BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K,(number),0,1), BPF_STMT(BPF_RET|BPF_K,SECCOMP_RET_ERRNO|(EPERM&SECCOMP_RET_DATA))
+    static const struct sock_filter filter[]={
+        BPF_STMT(BPF_LD|BPF_W|BPF_ABS,offsetof(struct seccomp_data,arch)),
+        BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K,architecture,1,0),BPF_STMT(BPF_RET|BPF_K,SECCOMP_RET_KILL_PROCESS),
+        BPF_STMT(BPF_LD|BPF_W|BPF_ABS,offsetof(struct seccomp_data,nr)),
+        JAS_DENY_SYSCALL(__NR_socket),JAS_DENY_SYSCALL(__NR_socketpair),JAS_DENY_SYSCALL(__NR_connect),
+        JAS_DENY_SYSCALL(__NR_bind),JAS_DENY_SYSCALL(__NR_listen),JAS_DENY_SYSCALL(__NR_accept),
+        JAS_DENY_SYSCALL(__NR_accept4),JAS_DENY_SYSCALL(__NR_sendto),JAS_DENY_SYSCALL(__NR_recvfrom),
+        JAS_DENY_SYSCALL(__NR_sendmsg),JAS_DENY_SYSCALL(__NR_recvmsg),JAS_DENY_SYSCALL(__NR_shutdown),
+#ifdef __NR_sendmmsg
+        JAS_DENY_SYSCALL(__NR_sendmmsg),
+#endif
+#ifdef __NR_recvmmsg
+        JAS_DENY_SYSCALL(__NR_recvmmsg),
+#endif
+        JAS_DENY_SYSCALL(__NR_getsockname),JAS_DENY_SYSCALL(__NR_getpeername),
+        JAS_DENY_SYSCALL(__NR_setsockopt),JAS_DENY_SYSCALL(__NR_getsockopt),
+#ifdef __NR_io_uring_setup
+        JAS_DENY_SYSCALL(__NR_io_uring_setup),JAS_DENY_SYSCALL(__NR_io_uring_enter),JAS_DENY_SYSCALL(__NR_io_uring_register),
+#endif
+#ifdef __NR_bpf
+        JAS_DENY_SYSCALL(__NR_bpf),
+#endif
+#ifdef __NR_clone3
+        JAS_DENY_SYSCALL(__NR_clone3),
+#endif
+        JAS_DENY_SYSCALL(__NR_clone),JAS_DENY_SYSCALL(__NR_fork),JAS_DENY_SYSCALL(__NR_vfork),
+#ifdef __NR_execveat
+        JAS_DENY_SYSCALL(__NR_execveat),
+#endif
+#ifdef __NR_ptrace
+        JAS_DENY_SYSCALL(__NR_ptrace),
+#endif
+#ifdef __NR_process_vm_readv
+        JAS_DENY_SYSCALL(__NR_process_vm_readv),JAS_DENY_SYSCALL(__NR_process_vm_writev),
+#endif
+        BPF_STMT(BPF_RET|BPF_K,SECCOMP_RET_ALLOW),
+    };
+#undef JAS_DENY_SYSCALL
+    const struct sock_fprog program={static_cast<unsigned short>(std::size(filter)),const_cast<struct sock_filter*>(filter)};
+    if(prctl(PR_SET_SECCOMP,SECCOMP_MODE_FILTER,&program)!=0)_exit(126);
+}
+#endif
+
 std::string canonicalPath(const char* raw, bool directory, bool executable) {
     char resolved[PATH_MAX];
     if (!raw || !*raw || !realpath(raw, resolved)) throw std::runtime_error("startup_path_invalid");
@@ -468,15 +596,20 @@ std::string canonicalPath(const char* raw, bool directory, bool executable) {
     return resolved;
 }
 
-void restrictChild(int keyDescriptor) {
+void restrictChild(int keyDescriptor,const std::string& php,const std::string& jas,const std::string& workspace) {
     umask(077);
 #ifdef __linux__
+    if(geteuid()==0||getegid()==0)_exit(126);
     if (prctl(PR_SET_DUMPABLE, 0) != 0 || prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0) _exit(126);
 #endif
     struct rlimit coreLimit{0, 0}; if (setrlimit(RLIMIT_CORE, &coreLimit) != 0) _exit(126);
     long maximum = sysconf(_SC_OPEN_MAX); if (maximum < 0 || maximum > 65536) maximum = 65536;
     for (int descriptor = 3; descriptor < maximum; ++descriptor) if (descriptor != keyDescriptor) close(descriptor);
     struct rlimit fileLimit{64, 64}; if (setrlimit(RLIMIT_NOFILE, &fileLimit) != 0) _exit(126);
+#ifdef __linux__
+    confineChildFilesystem(php,jas,workspace);
+    denyChildNetwork();
+#endif
 }
 
 struct Child { pid_t pid{}; int input{-1}; int output{-1}; };
@@ -492,7 +625,7 @@ Child spawnPhp(const std::string& php,const std::string& jas,const std::string& 
         if (clearenv() != 0) _exit(126);
         const std::string fd=std::to_string(keyPipe[0]);
         if (setenv("JAS_LANGUAGE_KEY_FD",fd.c_str(),1) != 0 || setenv("LANG","C.UTF-8",1) != 0) _exit(126);
-        restrictChild(keyPipe[0]);
+        restrictChild(keyPipe[0],php,jas,workspace);
         execl(php.c_str(),php.c_str(),jas.c_str(),"language:serve","--stdio",workspace.c_str(),static_cast<char*>(nullptr));_exit(127);
     }
     close(nullDescriptor);close(toChild[0]);close(fromChild[1]);close(keyPipe[0]);
@@ -505,11 +638,11 @@ Child spawnPhp(const std::string& php,const std::string& jas,const std::string& 
 int main(int argc,char** argv){
     if(argc!=4){std::cerr<<"usage: jas-lsp-bridge <php-binary> <jas-cli> <workspace>\n";return 2;}
     signal(SIGPIPE, SIG_IGN);struct sigaction interruptAction{};interruptAction.sa_handler=interruptHandler;sigemptyset(&interruptAction.sa_mask);interruptAction.sa_flags=0;if(sigaction(SIGUSR1,&interruptAction,nullptr)!=0){std::cerr<<"JAS LSP bridge could not install safeguards\n";return 2;}
-    std::string php,jas,workspace;try{php=canonicalPath(argv[1],false,true);jas=canonicalPath(argv[2],false,false);workspace=canonicalPath(argv[3],true,false);}catch(...){std::cerr<<"JAS LSP bridge rejected startup paths\n";return 2;}
+    std::string php,jas,workspace;try{php=canonicalPath(argv[1],false,true);jas=canonicalPath(argv[2],false,false);workspace=canonicalPath(argv[3],true,false);if(clearenv()!=0)throw std::runtime_error("environment_clear_failed");}catch(...){std::cerr<<"JAS LSP bridge rejected startup paths\n";return 2;}
     std::array<std::uint8_t,32> key{},sessionBytes{};if(RAND_bytes(key.data(),key.size())!=1||RAND_bytes(sessionBytes.data(),16)!=1){std::cerr<<"JAS LSP bridge could not initialize\n";return 2;}
-    Child child{};std::atomic<bool> running{true};std::atomic<bool> timedOut{false},backendFailed{false},gracefulExit{false};try{child=spawnPhp(php,jas,workspace,key);JasChannel channel(child.input,child.output,key,hex(sessionBytes.data(),16));OPENSSL_cleanse(key.data(),key.size());OPENSSL_cleanse(sessionBytes.data(),sessionBytes.size());Translator translator;LspWriter writer;bool framingFailure=false;const pthread_t mainThread=pthread_self();
+    Child child{};std::atomic<bool> running{true};std::atomic<bool> timedOut{false},backendFailed{false},gracefulExit{false};try{child=spawnPhp(php,jas,workspace,key);JasChannel channel(child.input,child.output,key,hex(sessionBytes.data(),16));OPENSSL_cleanse(key.data(),key.size());OPENSSL_cleanse(sessionBytes.data(),sessionBytes.size());Translator translator;LspWriter writer;MessageRateLimiter rateLimiter;bool framingFailure=false;const pthread_t mainThread=pthread_self();
         std::thread reader([&]{try{while(running){if(channel.ready(25)){translator.outbound(channel.receive(),writer);continue;}if(translator.requestExpired()){timedOut=true;running=false;kill(child.pid,SIGKILL);pthread_kill(mainThread,SIGUSR1);break;}}}catch(...){if(!gracefulExit){backendFailed=true;kill(child.pid,SIGKILL);}running=false;pthread_kill(mainThread,SIGUSR1);}});
-        while(running){std::optional<std::string> body;try{body=readLspMessage();}catch(...){if(!timedOut&&!backendFailed)framingFailure=true;break;}if(!body)break;rapidjson::Document doc;doc.Parse<rapidjson::kParseValidateEncodingFlag|rapidjson::kParseStopWhenDoneFlag|rapidjson::kParseIterativeFlag>(body->data(),body->size());if(doc.HasParseError()){try{writer.error(nullptr,-32700,"Parse error");}catch(...){break;}continue;}try{std::size_t jsonItems=0;validateJson(doc,0,jsonItems);auto [opcode,message]=translator.inbound(doc);if(opcode==0)continue;const bool exiting=opcode==OP_EXIT;if(exiting)gracefulExit=true;try{channel.send(opcode,message);}catch(...){if(exiting)gracefulExit=false;throw;}if(exiting)break;}catch(const LspRequestError& error){const rapidjson::Value* id=doc.IsObject()&&doc.HasMember("id")?&doc["id"]:nullptr;if(id){try{writer.error(id,error.code(),error.what());}catch(...){break;}}}catch(const std::exception&){const rapidjson::Value* id=doc.IsObject()&&doc.HasMember("id")?&doc["id"]:nullptr;if(id){try{writer.error(id,-32602,"Invalid or unsupported language request");}catch(...){break;}}}}
+        while(running){std::optional<std::string> body;try{body=readLspMessage();}catch(...){if(!timedOut&&!backendFailed)framingFailure=true;break;}if(!body)break;const auto rateDecision=rateLimiter.consume();if(rateDecision==MessageRateLimiter::RejectSilently)continue;rapidjson::Document doc;doc.Parse<rapidjson::kParseValidateEncodingFlag|rapidjson::kParseStopWhenDoneFlag|rapidjson::kParseIterativeFlag>(body->data(),body->size());if(doc.HasParseError()){if(rateDecision==MessageRateLimiter::Allow)try{writer.error(nullptr,-32700,"Parse error");}catch(...){break;}continue;}if(rateDecision==MessageRateLimiter::RejectAndReport){const rapidjson::Value* id=doc.IsObject()&&doc.HasMember("id")?&doc["id"]:nullptr;if(id)try{writer.error(id,-32001,"Language message rate limit exceeded");}catch(...){break;}continue;}try{std::size_t jsonItems=0;validateJson(doc,0,jsonItems);auto [opcode,message]=translator.inbound(doc);if(opcode==0)continue;const bool exiting=opcode==OP_EXIT;if(exiting)gracefulExit=true;try{channel.send(opcode,message);}catch(...){if(exiting)gracefulExit=false;throw;}if(exiting)break;}catch(const LspRequestError& error){const rapidjson::Value* id=doc.IsObject()&&doc.HasMember("id")?&doc["id"]:nullptr;if(id){try{writer.error(id,error.code(),error.what());}catch(...){break;}}}catch(const std::exception&){const rapidjson::Value* id=doc.IsObject()&&doc.HasMember("id")?&doc["id"]:nullptr;if(id){try{writer.error(id,-32602,"Invalid or unsupported language request");}catch(...){break;}}}}
         close(child.output);if(reader.joinable())reader.join();running=false;close(child.input);int status=0;waitpid(child.pid,&status,0);if(timedOut){std::cerr<<"JAS LSP bridge terminated an unresponsive backend\n";return 1;}if(framingFailure){std::cerr<<"JAS LSP bridge rejected malformed framing\n";return 1;}if(backendFailed){std::cerr<<"JAS LSP bridge terminated after backend failure\n";return 1;}return WIFEXITED(status)?WEXITSTATUS(status):1;
     }catch(const std::exception&){running=false;OPENSSL_cleanse(key.data(),key.size());OPENSSL_cleanse(sessionBytes.data(),sessionBytes.size());if(child.output>=0)close(child.output);if(child.input>=0)close(child.input);if(child.pid>0){kill(child.pid,SIGTERM);waitpid(child.pid,nullptr,0);}std::cerr<<"JAS LSP bridge stopped safely\n";return 1;}
 }
