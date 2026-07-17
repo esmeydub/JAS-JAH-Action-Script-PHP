@@ -96,11 +96,13 @@ las ejecuta, no crea índices persistentes y no utiliza JSON. Reconoce tipos,
 dominios, acciones, eventos y capacidades. Todas las posiciones del CLI usan
 línea y columna comenzando en 1.
 
-Es un servicio de lenguaje por CLI con capacidades similares a las de un LSP,
-pero no implementa el Language Server Protocol estándar: no ofrece JSON-RPC por
-stdio, ciclo `initialize`, sincronización de documentos abiertos ni adaptador
-directo para editores. JAS no afirma compatibilidad LSP mientras esa frontera no
-se implemente y verifique sin introducir JSON dentro del motor.
+El motor PHP también ofrece un servicio persistente JASB con documentos abiertos,
+posiciones Unicode, lifecycle, diagnósticos y navegación. El adaptador externo
+`sdk/cpp/lsp/jas_lsp_bridge.cpp` ya completa el lifecycle LSP/JSON-RPC estándar
+por stdio y traduce la allowlist inicial. JSON sólo existe en ese proceso C++:
+el motor PHP y DataCore reciben exclusivamente JASB/JASL firmado. La
+interoperabilidad completa, el hardening y la distribución siguen la Puerta 8.5,
+por lo que aún se documenta como compatibilidad LSP en desarrollo.
 
 ```bash
 php bin/jas language:diagnostics mi-proyecto
@@ -109,6 +111,8 @@ php bin/jas language:definition mi-proyecto app/Actions/Crear.php 8 25
 php bin/jas language:references mi-proyecto app/Actions/Crear.php 8 25
 php bin/jas language:rename mi-proyecto app/Actions/Crear.php 8 25 Solicitud
 php bin/jas language:rename mi-proyecto app/Actions/Crear.php 8 25 Solicitud --apply
+make -C sdk/cpp/lsp test
+sdk/cpp/lsp/jas-lsp-bridge "$(command -v php)" "$PWD/bin/jas" "$PWD/mi-proyecto"
 ```
 
 `language:rename` sólo muestra el plan de cambios de forma predeterminada. Con

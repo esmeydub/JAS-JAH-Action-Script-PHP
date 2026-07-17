@@ -98,6 +98,10 @@ different approvers and revalidates every row through DataCore contracts.
 - Linux is the currently verified platform
 - No Composer, Node, npm, JavaScript or JSON artifacts are required or accepted
 
+The optional external LSP bridge additionally requires a C++20 compiler,
+RapidJSON headers and OpenSSL 3 development files. These dependencies belong to
+the compatibility executable; the PHP/DataCore core remains pure PHP and JASB.
+
 ```bash
 git clone https://github.com/esmeydub/JAS-JAH-Action-Script-PHP.git
 cd JAS-JAH-Action-Script-PHP
@@ -111,6 +115,17 @@ Expected final line:
 ```text
 JAS SUITE: PASS
 ```
+
+To build and verify the external standard-LSP compatibility bridge:
+
+```bash
+make -C sdk/cpp/lsp test
+sdk/cpp/lsp/jas-lsp-bridge "$(command -v php)" "$PWD/bin/jas" "$PWD"
+```
+
+The executable uses stdio `Content-Length` framing for editors and starts the
+PHP semantic service through fixed arguments without a shell. JSON-RPC is
+confined to this C++ process; PHP and DataCore receive only authenticated JASB.
 
 The suite includes positive, negative, concurrency, crash-recovery and tamper
 tests. Its fuzz stage performs 500 valid round trips and rejects 500 corrupted

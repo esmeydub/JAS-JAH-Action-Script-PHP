@@ -1,6 +1,6 @@
 # Plan normativo del servidor LSP de JAS
 
-Estado: **en progreso; L0–L2 completadas, L3 es la siguiente acción**
+Estado: **en progreso; L0–L2 completadas y L3 operativa en endurecimiento**
 
 ## Objetivo y frontera inmutable
 
@@ -72,7 +72,7 @@ referencias y plan de rename sobre documentos guardados/no guardados.
 
 ## Fase L3 — Bridge externo C++
 
-Estado: **pendiente; siguiente acción obligatoria**
+Estado: **operativa; lifecycle estándar verificado, falta cerrar timeout y resiliencia**
 
 - Implementar dos pares de pipes: editor ⇄ C++ y C++ ⇄ PHP.
 - Leer `Content-Length` exactamente y soportar frames parciales/consecutivos.
@@ -83,6 +83,14 @@ Estado: **pendiente; siguiente acción obligatoria**
 - Usar `execve`/`posix_spawn` o `CreateProcess` con argv fijo, nunca shell.
 
 Cierre: `initialize`, `initialized`, `shutdown` y `exit` pasan contra un cliente LSP real.
+
+Avance verificado: `sdk/cpp/lsp/jas_lsp_bridge.cpp` usa RapidJSON compilado
+dentro del ejecutable, OpenSSL 3 para SALK HMAC-SHA256, clave efímera por pipe,
+`fork`/`execl` con argv fijo y dos canales de stdio independientes. Un lector
+asíncrono multiplexa respuestas/notificaciones PHP mientras el hilo principal
+procesa frames LSP. `make -C sdk/cpp/lsp test` valida mensajes consecutivos y el
+lifecycle JSON-RPC 2.0 real. Antes de cerrar L3 faltan timeout de solicitudes,
+stderr acotado y pruebas adversariales de framing parcial/caída de PHP.
 
 ## Fase L4 — Capacidades mínimas
 

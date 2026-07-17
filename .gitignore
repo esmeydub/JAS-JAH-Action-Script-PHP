@@ -4,3 +4,4 @@
 *.log
 *.tmp
 *.identity
+/sdk/cpp/lsp/jas-lsp-bridge

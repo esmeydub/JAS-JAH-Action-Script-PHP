@@ -399,7 +399,7 @@ Estado: **completada**
 
 ## Puerta 8.5 — LSP estándar externo
 
-Estado: **en progreso; L0–L2 completadas**
+Estado: **en progreso; L0–L2 completadas y L3 operativa en endurecimiento**
 
 Después de cerrar la Fase 8 se ejecutará íntegramente `JAS_LSP_PLAN.md`. El
 editor hablará LSP/JSON-RPC únicamente con `jas-lsp-bridge` externo en C++; el
@@ -425,6 +425,8 @@ ni incorporarán el bridge como dependencia del núcleo.
 - L2 completada: `LanguageBinaryService` implementa lifecycle estricto, sesión única, timestamp/replay, versión documental, codificación negociada, diagnósticos push y navegación semántica.
 - Rename devuelve exclusivamente cambios versionados y renombres de URI; nunca escribe. `LanguageStdioServer` reserva stdout para frames y la clave SALK entra por descriptor heredado, no argv ni entorno secreto.
 - Pruebas cubren pre-initialize, initialize, documentos, hover, definición, referencias, prepare/rename, diagnóstico inválido, versión stale, shutdown/exit, replay, expiración y stdio: `JAS LANGUAGE BINARY SERVICE: PASS`.
+- L3 ya dispone de bridge C++ externo compilable: framing `Content-Length`, parser RapidJSON, allowlist de métodos, traducción JASL/JASB firmada, clave efímera por descriptor, `execl` sin shell y lectura asíncrona de PHP.
+- El lifecycle JSON-RPC `initialize` → `initialized` → `shutdown` → `exit` pasa de extremo a extremo con `make -C sdk/cpp/lsp test`. L3 sigue abierta hasta añadir timeout, stderr acotado y pruebas adversariales de framing/caída.
 
 No se iniciará la Fase 9 hasta cerrar esta puerta y registrar evidencia.
 
@@ -492,7 +494,7 @@ cambio futuro de estado debe actualizar simultáneamente la fase y esta tabla.
 | 6 | Completada | JAS Web: `php tests/test_jas_web.php`, `php tests/test_jas_accessibility.php` y `php tests/test_jas_upload.php` |
 | 7 | Completada | Tooling y ciclo de proyecto: `php tests/test_jas_tooling.php`, `php tests/test_jas_language_engine.php`, `php tests/test_jas_project_lifecycle.php` y `php bin/jas static` |
 | 8 | Completada | Operación segura y calificación acelerada: `php tests/test_jas_operations_qualification.php 500`; 10,500/10,500 operaciones, integridad PASS; gate transversal: `php tests/run_all.php` |
-| 8.5 | En progreso | L0–L2: contratos, documentos y `php tests/test_jas_language_service.php`; siguiente L3 bridge C++ externo |
+| 8.5 | En progreso | L0–L2 completas; L3 bridge C++ operativo con lifecycle estándar, endurecimiento pendiente: `make -C sdk/cpp/lsp test` |
 | 9 | Pendiente | No iniciada |
 | 10 | Pendiente | No iniciada |
 
@@ -501,13 +503,14 @@ registrado es `JAS SUITE: PASS`.
 
 ## Próxima acción obligatoria
 
-Continuar **Puerta 8.5 — LSP estándar externo** con L3: bridge C++ JSON-RPC,
-doble pipe, spawn fijo y lifecycle frente a un cliente LSP. No iniciar la Fase 9 antes de cerrar el plan.
+Terminar el endurecimiento L3 del bridge C++: timeout, stderr acotado y pruebas
+adversariales; después verificar todas las capacidades L4 desde el protocolo
+LSP. No iniciar la Fase 9 antes de cerrar el plan.
 
 ## Resumen de trabajo restante
 
 - Fases 1–8: completadas.
-- Puerta 8.5: L0–L2 completadas; L3–L7 pendientes según `JAS_LSP_PLAN.md`.
+- Puerta 8.5: L0–L2 completadas; L3 operativa en endurecimiento; L4–L7 pendientes según `JAS_LSP_PLAN.md`.
 - Fase 9: pendiente completa; incluye fallos, red, rotación bajo carga, threat
   model y revisiones externas. La revisión criptográfica y el penetration test
   requieren especialistas independientes y no pueden autodeclararse.
