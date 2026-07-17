@@ -15,7 +15,7 @@ final class DefinitionEditor
     {
         if (!preg_match('/^[A-Z][A-Za-z0-9_]{1,127}$/', $type)
             || !preg_match('/^[a-z_][a-z0-9_]{0,127}\??$/', $field)
-            || !preg_match('/^[A-Za-z][A-Za-z0-9_-]{0,127}$/', $descriptor)) {
+            || !preg_match('/^[A-Za-z][A-Za-z0-9_-]{0,127}(?:\[\])?$/', $descriptor)) {
             throw new RuntimeException('definition_type_field_invalid');
         }
         $file = $this->definitionFile($project, 'Types', $type . '.php');

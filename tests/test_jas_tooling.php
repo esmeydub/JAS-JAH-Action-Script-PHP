@@ -57,6 +57,8 @@ $tool->type($base, 'TramiteCreado');
 $editor = new DefinitionEditor();
 $fieldUpdate = $editor->addTypeField($base, 'NuevoTramite', 'descripcion?', 'string');
 if (!$fieldUpdate['changed'] || !isset($fieldUpdate['definition']['fields']['descripcion?'])) throw new RuntimeException('type_safe_update_failed');
+$listFieldUpdate = $editor->addTypeField($base, 'NuevoTramite', 'etiquetas?', 'string[]');
+if (!$listFieldUpdate['changed'] || ($listFieldUpdate['definition']['fields']['etiquetas?'] ?? null) !== 'string[]') throw new RuntimeException('type_list_safe_update_failed');
 $dependencyUpdate = $editor->addDomainDependency($base, 'Tramites', 'Identidad');
 if (!$dependencyUpdate['changed'] || $dependencyUpdate['definition']['dependencies'] !== ['Identidad']) throw new RuntimeException('domain_safe_update_failed');
 try {

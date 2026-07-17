@@ -33,6 +33,7 @@ $tests = [
     $root . '/tests/test_jas_project_lifecycle.php',
     $root . '/tests/test_jas_fuzz.php',
     $root . '/tests/test_jas_phase9.php',
+    $root . '/tests/test_jas_reference_portal.php',
     $root . '/tests/test_jas_integrated.php',
     $root . '/tests/test_jas_queue.php',
     $root . '/tests/test_jas_dead_letter.php',
