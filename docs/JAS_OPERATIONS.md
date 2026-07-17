@@ -220,3 +220,50 @@ El límite de leases evita que consumidores lentos acumulen trabajo en curso. La
 selección ignora temporalmente una partición que agotó sus leases y continúa
 buscando trabajos compatibles. `queue:stats` expone por partición queued,
 leased, activo, límites y saturación para operación y alertas.
+
+## Calificación acelerada y burn-in prolongado
+
+El gate reproducible de la Fase 8 usa una campaña acelerada porque el ciclo de
+entrega no debe fabricar ni esperar siete días de calendario:
+
+```bash
+php tests/test_jas_operations_qualification.php 500
+```
+
+Cada ciclo ejecuta trabajo real sobre colas aisladas y DataCore, reabre ambos
+almacenamientos, verifica recuperación, integridad, readiness y límites, y
+publica conteos y rendimiento medido. Esto es evidencia de estrés repetible; no
+se describe como si fueran siete días reales ni sustituye el burn-in de un
+despliegue productivo.
+
+Evidencia local de cierre del 2026-07-16: 500 ciclos, 10,500 operaciones,
+10,500 aceptadas, cero pérdidas, integridad válida y 62.549 operaciones por
+segundo durante 167.867285 segundos. Es una medición del entorno de desarrollo,
+no una promesa universal de rendimiento.
+
+### Burn-in prolongado opcional de producción
+
+`SustainedOperationEvidence` permite ejecutar después un burn-in real y fija un mínimo inmodificable de 604,800
+segundos y conserva manifiesto y muestras en formato JAH/PHP. Cada muestra forma
+una cadena SHA-256 y lleva firma Ed25519 de la identidad local del nodo.
+
+```bash
+php bin/jas operations:evidence:sample
+php bin/jas operations:evidence:status
+```
+
+El primer comando ejecuta carga limitada real sobre colas aisladas y DataCore,
+reabre ambos almacenamientos para probar recuperación, verifica las cadenas de
+eventos y auditoría y registra presión de disco/readiness. Debe ejecutarse cada
+minuto mediante un timer del sistema. Una segunda ejecución antes del intervalo
+no duplica muestras; rollback del reloj, huecos mayores de cinco minutos,
+corrupción, pérdida de operaciones o cola fuera de límites quedan preservados
+como fallo y no se pueden convertir en éxito reescribiendo una muestra. Esta
+campaña fortalece una evaluación de producción, pero no bloquea la entrega del
+hackathon ni se presenta como evidencia ya transcurrida.
+
+La firma detecta alteración posterior, pero un administrador que controle a la
+vez el reloj y la clave privada del nodo podría fabricar una campaña. Para una
+evaluación externa, el hash final diario debe anclarse en un sistema institucional
+independiente mediante el adaptador JASB de telemetría. JAS no presenta esta
+evidencia local como certificación independiente.

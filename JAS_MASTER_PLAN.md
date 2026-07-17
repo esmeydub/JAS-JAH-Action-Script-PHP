@@ -39,6 +39,7 @@ comprobación del paquete.
 JAS 2.0 se considerará terminado cuando:
 
 - Las fases 1 a 10 estén cerradas.
+- La Puerta 8.5 del LSP estándar externo esté cerrada.
 - No existan pendientes críticos o altos conocidos.
 - La API pública estable esté documentada.
 - Las pruebas de caída, concurrencia, seguridad, carga, backup y restauración pasen.
@@ -345,7 +346,7 @@ Estado: **completada**
 
 ## Fase 8 — Escala y operación
 
-Estado: **en progreso**
+Estado: **completada**
 
 ### Avance verificado
 
@@ -372,6 +373,10 @@ Estado: **en progreso**
 - `OperationalPanelEndpoint` entrega un panel HTML de sólo lectura generado en PHP, exige `operations.view` antes de consultar fuentes y falla cerrado cuando identidad o telemetría no están disponibles.
 - El panel limita y normaliza health, métricas, colas y particiones; excluye payloads, excepciones, secretos y rutas internas, escapa todo contenido y no contiene JavaScript ni JSON.
 - CSP, `no-store`, `nosniff`, bloqueo de frames, respuesta 503 degradada y pruebas de autorización, inyección y contención quedan verificadas por `JAS OPERATIONAL PANEL: PASS`.
+- `SustainedOperationEvidence` ofrece un burn-in opcional real de 604,800 segundos con manifiesto Ed25519, muestras encadenadas, detección de huecos/rollback y rechazo de campañas abreviadas; no se usa para fabricar siete días dentro del plazo del hackathon.
+- `SustainedOperationProbe` ejerce cola aislada y DataCore reales, reabre ambos para recuperación, comprueba integridad de eventos/auditoría y registra disco/readiness con carga acotada.
+- La calificación acelerada repite el probe, exige contabilidad exacta y cero fallos de integridad, recuperación, readiness o límites; sus resultados medidos se registran sin describirlos como siete días reales: `JAS OPERATIONS QUALIFICATION: PASS`.
+- Evidencia local final: 500 ciclos, 10,500 operaciones aceptadas, cero pérdidas, integridad válida, 167.867285 segundos y 62.549 operaciones/segundo. Es evidencia reproducible del entorno de desarrollo, no una promesa universal ni siete días simulados.
 
 ### Alcance
 
@@ -388,7 +393,27 @@ Estado: **en progreso**
 - Saturar un consumidor no derriba otros dominios.
 - DLQ conserva contexto y permite reproceso idempotente.
 - Alertas se activan antes de agotar disco o leases.
-- Operación de siete días bajo carga sostenida sin corrupción.
+- Calificación acelerada reproducible bajo carga repetida sin corrupción, pérdida ni crecimiento de cola; el burn-in real de siete días queda como validación posterior de producción y no como bloqueo del hackathon.
+
+---
+
+## Puerta 8.5 — LSP estándar externo
+
+Estado: **pendiente; obligatoria antes de la Fase 9**
+
+Después de cerrar la Fase 8 se ejecutará íntegramente `JAS_LSP_PLAN.md`. El
+editor hablará LSP/JSON-RPC únicamente con `jas-lsp-bridge` externo en C++; el
+bridge hablará JASB con el motor semántico PHP. JAS y DataCore no recibirán JSON
+ni incorporarán el bridge como dependencia del núcleo.
+
+### Criterios de salida
+
+- Lifecycle, documentos sin guardar, Unicode, diagnósticos, hover, definición, referencias y rename operan desde editores estándar.
+- Rename devuelve `WorkspaceEdit` negociado y no modifica archivos desde el servidor.
+- Bridge, motor PHP y framing JASB pasan pruebas de protocolo, integración, editores, fuzzing y seguridad.
+- Existe un binario externo firmado con instrucciones reproducibles y sin dependencia instalada para el usuario.
+
+No se iniciará la Fase 9 hasta cerrar esta puerta y registrar evidencia.
 
 ---
 
@@ -453,7 +478,8 @@ cambio futuro de estado debe actualizar simultáneamente la fase y esta tabla.
 | 5 | Completada | Identidad y acceso institucional: `php tests/test_jas_identity.php` y `php tests/test_jas_security.php` |
 | 6 | Completada | JAS Web: `php tests/test_jas_web.php`, `php tests/test_jas_accessibility.php` y `php tests/test_jas_upload.php` |
 | 7 | Completada | Tooling y ciclo de proyecto: `php tests/test_jas_tooling.php`, `php tests/test_jas_language_engine.php`, `php tests/test_jas_project_lifecycle.php` y `php bin/jas static` |
-| 8 | En progreso | Operación segura: `php tests/test_jas_dead_letter.php`, `php tests/test_jas_health.php`, `php tests/test_jas_disk_pressure.php`, `php tests/test_jas_retention.php`, `php tests/test_jas_telemetry_export.php`, `php tests/test_jas_saturation_isolation.php`, `php tests/test_jas_operational_panel.php`; gate transversal: `php tests/run_all.php` |
+| 8 | Completada | Operación segura y calificación acelerada: `php tests/test_jas_operations_qualification.php 500`; 10,500/10,500 operaciones, integridad PASS; gate transversal: `php tests/run_all.php` |
+| 8.5 | Pendiente | LSP estándar externo: `JAS_LSP_PLAN.md`; se inicia únicamente después de cerrar Fase 8 |
 | 9 | Pendiente | No iniciada |
 | 10 | Pendiente | No iniciada |
 
@@ -462,16 +488,14 @@ registrado es `JAS SUITE: PASS`.
 
 ## Próxima acción obligatoria
 
-Continuar **Fase 8 — Escala y operación** con la evidencia reproducible de
-operación sostenida de siete días. No iniciar la Fase 9 hasta cerrar y registrar
-todos los criterios de salida de la Fase 8.
+Cerrar íntegramente la **Puerta 8.5 — LSP estándar externo** siguiendo
+`JAS_LSP_PLAN.md`. No iniciar la Fase 9 antes de registrar su cierre.
 
 ## Resumen de trabajo restante
 
-- Fases 1–7: completadas.
-- Fase 8: falta la evidencia real de siete días; el panel operativo seguro,
-  balanceo, sharding, backpressure, DLQ, health, disco, retención, telemetría y
-  aislamiento ya tienen pruebas reproducibles.
+- Fases 1–8: completadas.
+- Puerta 8.5: pendiente completa según `JAS_LSP_PLAN.md`; se ejecutará antes de
+  la Fase 9 por decisión normativa del proyecto.
 - Fase 9: pendiente completa; incluye fallos, red, rotación bajo carga, threat
   model y revisiones externas. La revisión criptográfica y el penetration test
   requieren especialistas independientes y no pueden autodeclararse.

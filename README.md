@@ -65,8 +65,8 @@ JAS turns those concerns into explicit definitions:
 | Tooling | Generators, analyzer, Language Intelligence Engine, health checks and generated documentation |
 
 Development follows the phase gates in
-[`JAS_MASTER_PLAN.md`](JAS_MASTER_PLAN.md). Phases 1–7 are complete; scale and
-operations is the active Phase 8.
+[`JAS_MASTER_PLAN.md`](JAS_MASTER_PLAN.md). Phases 1–8 are complete; the external
+standard-LSP compatibility gate is active before security verification Phase 9.
 
 ## Architecture
 

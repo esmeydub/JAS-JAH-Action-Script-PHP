@@ -28,6 +28,19 @@ function jas_dead_letter_service(string $root): Jah\JAS\Queue\DeadLetterService
     );
 }
 
+function jas_operations_evidence(string $root): Jah\JAS\Observability\SustainedOperationEvidence
+{
+    $node = (string) (getenv('JAS_NODE_ID') ?: 'jas-operations-node');
+    $node = preg_replace('/[^A-Za-z0-9._:-]/', '-', $node) ?: 'jas-operations-node';
+    if (strlen($node) < 3) $node = 'jas-' . $node;
+    $identity = Jah\JAS\Cluster\NodeIdentity::loadOrCreate(
+        $root . '/runtime/operations/identity', $node, 'local://operations-evidence', ['operations.evidence'],
+    );
+    return new Jah\JAS\Observability\SustainedOperationEvidence(
+        $root . '/runtime/operations/evidence/current', $identity,
+    );
+}
+
 
 switch ($command) {
     case 'test':
@@ -122,6 +135,28 @@ switch ($command) {
         $metrics = new Jah\JAS\Telemetry\MetricsRegistry($root . '/runtime/telemetry');
         jas_print($metrics->snapshot());
         exit(0);
+    case 'operations:evidence:sample':
+        $evidence = jas_operations_evidence($root);
+        try {
+            $observation = (new Jah\JAS\Observability\SustainedOperationProbe(
+                $root . '/runtime/operations/probe',
+            ))->run();
+        } catch (Throwable) {
+            $diskReport = Jah\JAS\Observability\DiskPressureGuard::fromEnvironment($root)->report();
+            $level = (string) $diskReport['level'];
+            $observation = [
+                'operations' => 1, 'accepted' => 0, 'rejected' => 1,
+                'integrity_valid' => false, 'recovery_valid' => false,
+                'readiness' => false, 'queue_bounded' => false, 'disk_level' => $level,
+            ];
+        }
+        jas_print($evidence->record($observation));
+        jas_print($evidence->status());
+        exit(($observation['integrity_valid'] && $observation['recovery_valid']) ? 0 : 2);
+    case 'operations:evidence:status':
+        $status = jas_operations_evidence($root)->status();
+        jas_print($status);
+        exit(($status['complete'] ?? false) === true ? 0 : 1);
     case 'audit:verify':
         $audit = new Jah\JAS\Persistence\AuditJournal($root . '/runtime/audit');
         $valid = $audit->verify();
@@ -370,6 +405,8 @@ switch ($command) {
         echo "  bin/jas queue:reprocess:approve <aprobación> <aprobador>\n";
         echo "  bin/jas queue:reprocess <job> <aprobación> <request-id> <aprobador>\n";
         echo "  bin/jas metrics        Muestra telemetría local\n";
+        echo "  bin/jas operations:evidence:sample  Registra una muestra real de la campaña de siete días\n";
+        echo "  bin/jas operations:evidence:status  Verifica el avance firmado de la campaña\n";
         echo "  bin/jas audit:verify   Verifica la cadena de auditoría\n";
         echo "  bin/jas events:verify  Verifica la cadena de eventos\n";
         echo "  bin/jas cluster:init [id] [endpoint]       Crea identidad Ed25519 del nodo\n";
