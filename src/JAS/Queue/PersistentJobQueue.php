@@ -12,12 +12,14 @@ final class PersistentJobQueue
 {
     private string $journal;
     private string $lockFile;
+    private readonly QueueIsolationPolicy $isolation;
 
     public function __construct(
         string $directory,
         private readonly int $maxQueued = 10000,
         private readonly int $defaultLeaseSeconds = 30,
         private readonly ?WriteAdmission $writeAdmission = null,
+        ?QueueIsolationPolicy $isolation = null,
     ) {
         if ($maxQueued < 1 || $defaultLeaseSeconds < 1) throw new RuntimeException('Configuración de cola inválida');
         if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
@@ -25,6 +27,8 @@ final class PersistentJobQueue
         }
         $this->journal = rtrim($directory, '/') . '/jobs.journal';
         $this->lockFile = rtrim($directory, '/') . '/jobs.lock';
+        $defaultPartitionCapacity = $maxQueued >= 100 ? max(1, (int) floor($maxQueued * 0.80)) : $maxQueued;
+        $this->isolation = $isolation ?? new QueueIsolationPolicy($defaultPartitionCapacity, $defaultPartitionCapacity);
     }
 
     public function submit(Job $job): Job
@@ -42,6 +46,7 @@ final class PersistentJobQueue
             }
             $queued = count(array_filter($jobs, static fn(Job $item): bool => $item->state === Job::QUEUED || $item->state === Job::LEASED));
             if ($queued >= $this->maxQueued) throw new RuntimeException('queue_full');
+            $this->isolation->assertSubmit($job, $jobs);
             $this->appendUnlocked(['type'=>'SUBMIT','job'=>$job->toArray(),'at'=>microtime(true)]);
             return $job;
         });
@@ -55,7 +60,9 @@ final class PersistentJobQueue
         return $this->locked(function () use ($workerId, $capabilities, $leaseSeconds): ?Job {
             $this->recoverExpiredUnlocked();
             $jobs = $this->rebuildUnlocked();
-            $candidates = array_filter($jobs, static fn(Job $job): bool => $job->state === Job::QUEUED && self::supports($capabilities, $job->capability));
+            $candidates = array_filter($jobs, fn(Job $job): bool => $job->state === Job::QUEUED
+                && self::supports($capabilities, $job->capability)
+                && $this->isolation->canLease($job, $jobs));
             if ($candidates === []) return null;
             usort($candidates, static function (Job $a, Job $b): int {
                 $priority = $b->priority <=> $a->priority;
@@ -145,6 +152,7 @@ final class PersistentJobQueue
                 $origin->priority, $origin->maxAttempts, microtime(true), $origin->objectId,
                 'dlq:' . hash('sha256', $originJobId . "\0" . $approvalId), $originJobId, $approvalId,
             );
+            $this->isolation->assertSubmit($job, $jobs);
             $this->appendUnlocked([
                 'type' => 'REPROCESS', 'job' => $job->toArray(), 'origin_job_id' => $originJobId,
                 'approval_id' => $approvalId, 'at' => microtime(true),
@@ -158,7 +166,10 @@ final class PersistentJobQueue
         $jobs = $this->all();
         $counts = [Job::QUEUED=>0, Job::LEASED=>0, Job::COMPLETED=>0, Job::FAILED=>0, Job::CANCELLED=>0];
         foreach ($jobs as $job) $counts[$job->state] = ($counts[$job->state] ?? 0) + 1;
-        return ['total'=>count($jobs), 'states'=>$counts, 'dead_letters'=>$counts[Job::FAILED], 'capacity'=>$this->maxQueued];
+        return [
+            'total'=>count($jobs), 'states'=>$counts, 'dead_letters'=>$counts[Job::FAILED], 'capacity'=>$this->maxQueued,
+            'partitions' => $this->isolation->stats($jobs),
+        ];
     }
 
     public function compact(bool $keepTerminal = true): void

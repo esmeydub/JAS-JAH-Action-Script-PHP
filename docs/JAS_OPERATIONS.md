@@ -171,3 +171,28 @@ cifra por sí solo. Un adaptador que cruce máquina o red debe envolverlo con
 `SalkEncryptedEnvelope` o transportarlo por TLS autenticado. La interfaz no
 incluye adaptadores de proveedores dentro del núcleo; una falla externa se
 normaliza como `telemetry_adapter_failed` y no modifica las fuentes originales.
+
+## Aislamiento bajo saturación
+
+`QueueIsolationPolicy` deriva la partición desde el primer segmento de la acción
+o capacidad (`social.*`, `payments.*`) y aplica límites independientes de
+trabajos activos y leases. Una partición llena recibe
+`queue_partition_full:<partición>` sin consumir la reserva de las demás.
+
+En colas de 100 o más posiciones, la política predeterminada limita una sola
+partición al 80 % de la capacidad global. El 20 % restante permite que otro
+dominio siga respondiendo. Sistemas críticos deben proporcionar límites
+explícitos por dominio y un máximo de leases acorde con sus workers:
+
+```php
+$isolation = new QueueIsolationPolicy(2000, 200, [
+    'social' => ['max_active' => 3000, 'max_leased' => 100],
+    'payments' => ['max_active' => 1000, 'max_leased' => 50],
+]);
+$queue = new PersistentJobQueue($directory, 10000, 30, $diskAdmission, $isolation);
+```
+
+El límite de leases evita que consumidores lentos acumulen trabajo en curso. La
+selección ignora temporalmente una partición que agotó sus leases y continúa
+buscando trabajos compatibles. `queue:stats` expone por partición queued,
+leased, activo, límites y saturación para operación y alertas.

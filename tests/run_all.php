@@ -35,6 +35,7 @@ $tests = [
     $root . '/tests/test_jas_disk_pressure.php',
     $root . '/tests/test_jas_retention.php',
     $root . '/tests/test_jas_telemetry_export.php',
+    $root . '/tests/test_jas_saturation_isolation.php',
     $root . '/tests/test_jas_cluster.php',
     $root . '/tests/test_jas_enterprise.php',
     $root . '/tests/test_jas_security.php',
