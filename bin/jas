@@ -1,0 +1,188 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+$boot = require dirname(__DIR__) . '/app/bootstrap.php';
+
+$command = $argv[1] ?? 'help';
+$root = $boot['root'];
+
+function jas_print(mixed $value): void
+{
+    if (is_array($value)) {
+        print_r($value);
+        return;
+    }
+    var_export($value);
+    echo "\n";
+}
+
+
+switch ($command) {
+    case 'test':
+        passthru(PHP_BINARY . ' ' . escapeshellarg($root . '/tests/run_all.php'), $code);
+        exit($code);
+    case 'health':
+        $version = trim((string) @file_get_contents($root . '/VERSION')) ?: 'unknown';
+        $checks = [
+            'version' => $version,
+            'php' => PHP_VERSION,
+            'php_supported' => version_compare(PHP_VERSION, '8.2.0', '>='),
+            'fibers' => class_exists(Fiber::class),
+            'datacore_writable' => is_writable($root . '/runtime') || is_writable(dirname($root . '/runtime')),
+            'sodium_cluster' => extension_loaded('sodium'),
+            'pcntl_workers' => extension_loaded('pcntl'),
+            'external_ai' => false,
+            'protocol' => 'JASB v' . Jah\JAS\Protocol\JasPacket::VERSION,
+        ];
+        echo "JAS HEALTH\n";
+        foreach ($checks as $name => $value) echo str_pad($name, 24) . ': ' . (is_bool($value) ? ($value ? 'OK' : 'NO') : $value) . "\n";
+        exit(0);
+    case 'queue:stats':
+        $queue = new Jah\JAS\Queue\PersistentJobQueue($root . '/runtime/queue');
+        jas_print($queue->stats());
+        exit(0);
+    case 'queue:recover':
+        $queue = new Jah\JAS\Queue\PersistentJobQueue($root . '/runtime/queue');
+        echo "Recovered leases: " . $queue->recoverExpired() . "\n";
+        exit(0);
+    case 'queue:compact':
+        $queue = new Jah\JAS\Queue\PersistentJobQueue($root . '/runtime/queue');
+        $queue->compact(true);
+        echo "Queue compacted\n";
+        exit(0);
+    case 'metrics':
+        $metrics = new Jah\JAS\Telemetry\MetricsRegistry($root . '/runtime/telemetry');
+        jas_print($metrics->snapshot());
+        exit(0);
+    case 'audit:verify':
+        $audit = new Jah\JAS\Persistence\AuditJournal($root . '/runtime/audit');
+        $valid = $audit->verify();
+        echo $valid ? "JAS AUDIT: VALID\n" : "JAS AUDIT: INVALID\n";
+        exit($valid ? 0 : 1);
+    case 'events:verify':
+        $events = new Jah\JAS\Persistence\EventJournal($root . '/runtime/events');
+        $valid = $events->verify();
+        echo $valid ? "JAS EVENTS: VALID\n" : "JAS EVENTS: INVALID\n";
+        exit($valid ? 0 : 1);
+    case 'cluster:init':
+        $nodeId = $argv[2] ?? (getenv('JAS_NODE_ID') ?: gethostname());
+        $endpoint = $argv[3] ?? (getenv('JAS_NODE_ENDPOINT') ?: 'tcp://127.0.0.1:9100');
+        $identity = Jah\JAS\Cluster\NodeIdentity::loadOrCreate($root . '/runtime/cluster/identity', (string)$nodeId, (string)$endpoint, ['*']);
+        echo "Node initialized: {$identity->id} {$identity->endpoint}\n";
+        exit(0);
+    case 'cluster:heartbeat':
+        $nodeId = $argv[2] ?? (getenv('JAS_NODE_ID') ?: gethostname());
+        $endpoint = $argv[3] ?? (getenv('JAS_NODE_ENDPOINT') ?: 'tcp://127.0.0.1:9100');
+        $identity = Jah\JAS\Cluster\NodeIdentity::loadOrCreate($root . '/runtime/cluster/identity', (string)$nodeId, (string)$endpoint, ['*']);
+        $registry = new Jah\JAS\Cluster\NodeRegistry($root . '/runtime/cluster/registry');
+        $registry->heartbeat($identity, ['php'=>PHP_VERSION,'pid'=>getmypid()]);
+        echo "Heartbeat registered: {$identity->id}\n";
+        exit(0);
+    case 'cluster:status':
+        $registry = new Jah\JAS\Cluster\NodeRegistry($root . '/runtime/cluster/registry');
+        $elector = new Jah\JAS\Cluster\LeaderElector($registry);
+        jas_print(['leader'=>$elector->leader()['id'] ?? null,'nodes'=>array_values($registry->all(true))]);
+        exit(0);
+    case 'cluster:compact':
+        $registry = new Jah\JAS\Cluster\NodeRegistry($root . '/runtime/cluster/registry');
+        $registry->compact();
+        echo "Cluster registry compacted\n";
+        exit(0);
+
+    case 'cluster:serve':
+        passthru(PHP_BINARY . ' ' . escapeshellarg($root . '/cluster_server.php'), $code); exit($code);
+    case 'cluster:sync':
+        passthru(PHP_BINARY . ' ' . escapeshellarg($root . '/cluster_sync.php') . ' ' . escapeshellarg($argv[2] ?? '0'), $code); exit($code);
+    case 'cluster:snapshot':
+        $manager = new Jah\JAS\Snapshot\DistributedSnapshotManager($root . '/runtime/cluster/snapshots');
+        $id = $argv[2] ?? ('snapshot-' . gmdate('Ymd-His'));
+        $sources = [];
+        foreach (['queue'=>'/runtime/queue/jobs.journal','wal'=>'/runtime/wal/wal.journal','replication'=>'/runtime/cluster/replication/replication.journal'] as $name=>$rel) { $p=$root.$rel; if(is_file($p)) $sources[$name.'.journal']=$p; }
+        jas_print($manager->create($id,$sources,['node'=>getenv('JAS_NODE_ID')?:gethostname()])); exit(0);
+    case 'cluster:snapshots':
+        $manager = new Jah\JAS\Snapshot\DistributedSnapshotManager($root . '/runtime/cluster/snapshots'); jas_print($manager->list()); exit(0);
+    case 'load:fault':
+        passthru(PHP_BINARY . ' ' . escapeshellarg($root . '/tests/load_fault.php') . ' ' . escapeshellarg($argv[2] ?? '5000') . ' ' . escapeshellarg($argv[3] ?? '0.10'), $code); exit($code);
+    case 'wal:pending':
+        $wal = new Jah\JAS\Persistence\WalJournal($root . '/runtime/wal');
+        jas_print($wal->pending());
+        exit(0);
+    case 'outbox:pending':
+        $outbox = new Jah\JAS\Persistence\OutboxJournal($root . '/runtime/outbox');
+        jas_print($outbox->pending());
+        exit(0);
+    case 'datacore:compact':
+        $collection = (string) ($argv[2] ?? '');
+        if ($collection === '') { fwrite(STDERR, "Collection is required\n"); exit(1); }
+        $apply = in_array('--apply', $argv, true);
+        $dropBackup = in_array('--drop-backup', $argv, true);
+        $datacore = new Jah\DataCore\DataCoreTurbo((string) $boot['config']['paths']['datacore_storage'], 1);
+        jas_print($datacore->compactCollection($collection, !$apply, !$dropBackup));
+        exit(0);
+    case 'make:project':
+        $directory = $argv[2] ?? '';
+        $name = $argv[3] ?? 'Aplicacion JAS';
+        $files = (new Jah\JAS\Tooling\ProjectScaffolder())->create((string) $directory, (string) $name);
+        echo "JAS project created with " . count($files) . " files\n";
+        exit(0);
+    case 'make:domain':
+        $file = (new Jah\JAS\Tooling\ProjectScaffolder())->domain((string) ($argv[2] ?? ''), (string) ($argv[3] ?? ''), (string) ($argv[4] ?? ''));
+        echo "Created {$file}\n"; exit(0);
+    case 'make:type':
+        $file = (new Jah\JAS\Tooling\ProjectScaffolder())->type((string) ($argv[2] ?? ''), (string) ($argv[3] ?? ''));
+        echo "Created {$file}\n"; exit(0);
+    case 'make:action':
+        $file = (new Jah\JAS\Tooling\ProjectScaffolder())->action((string) ($argv[2] ?? ''), (string) ($argv[3] ?? ''), (string) ($argv[4] ?? ''));
+        echo "Created {$file}\n"; exit(0);
+    case 'analyze':
+        $report = (new Jah\JAS\Tooling\ProjectAnalyzer())->analyze((string) ($argv[2] ?? '.'));
+        foreach ($report['diagnostics'] as $diagnostic) {
+            echo $diagnostic['file'] . ':' . $diagnostic['line'] . ' [' . $diagnostic['code'] . '] ' . $diagnostic['message'] . "\n";
+        }
+        echo $report['ok'] ? "JAS ANALYZE: PASS ({$report['files']} files)\n" : "JAS ANALYZE: FAIL\n";
+        exit($report['ok'] ? 0 : 1);
+    case 'app:validate':
+        $app = (new Jah\JAS\Tooling\ApplicationInspector())->load((string) ($argv[2] ?? ''));
+        $manifest = $app->describe();
+        echo "JAS APP: VALID\nFingerprint: {$manifest['fingerprint']}\n";
+        exit(0);
+    case 'app:docs':
+        $inspector = new Jah\JAS\Tooling\ApplicationInspector();
+        $app = $inspector->load((string) ($argv[2] ?? ''));
+        $target = (string) ($argv[3] ?? 'JAS_APPLICATION.md');
+        $inspector->writeMarkdown($app, $target);
+        echo "Documentation created: {$target}\n";
+        exit(0);
+    default:
+        echo "JAS CLI\n\n";
+        echo "  bin/jas test          Ejecuta la suite completa\n";
+        echo "  bin/jas health        Verifica capacidades locales\n";
+        echo "  bin/jas wal:pending    Muestra transacciones sin cerrar\n";
+        echo "  bin/jas outbox:pending Muestra publicaciones preparadas pendientes\n";
+        echo "  bin/jas datacore:compact <coleccion> [--apply] [--drop-backup]\n";
+        echo "  bin/jas make:project <dir> <nombre>          Crea una aplicación organizada\n";
+        echo "  bin/jas make:domain <proyecto> <Nombre> <prefijo>\n";
+        echo "  bin/jas make:type <proyecto> <Nombre>\n";
+        echo "  bin/jas make:action <proyecto> <Dominio> <accion.nombre>\n";
+        echo "  bin/jas analyze <proyecto>                    Analiza organización y seguridad\n";
+        echo "  bin/jas app:validate <application.php>         Valida contratos de producción\n";
+        echo "  bin/jas app:docs <application.php> <salida>    Genera documentación técnica\n";
+        echo "  bin/jas queue:stats    Estado de la cola persistente\n";
+        echo "  bin/jas queue:recover  Recupera leases vencidos\n";
+        echo "  bin/jas queue:compact  Compacta el journal de trabajos\n";
+        echo "  bin/jas metrics        Muestra telemetría local\n";
+        echo "  bin/jas audit:verify   Verifica la cadena de auditoría\n";
+        echo "  bin/jas events:verify  Verifica la cadena de eventos\n";
+        echo "  bin/jas cluster:init [id] [endpoint]       Crea identidad Ed25519 del nodo\n";
+        echo "  bin/jas cluster:heartbeat [id] [endpoint]  Registra heartbeat del nodo\n";
+        echo "  bin/jas cluster:status                    Lista nodos vivos y líder\n";
+        echo "  bin/jas cluster:compact                   Compacta el registro de nodos\n";
+        echo "  bin/jas cluster:serve                     Inicia servidor TCP persistente\n";
+        echo "  bin/jas cluster:sync [iteraciones]        Sincroniza réplicas periódicamente\n";
+        echo "  bin/jas cluster:snapshot [id]             Crea snapshot verificable\n";
+        echo "  bin/jas cluster:snapshots                 Lista snapshots\n";
+        echo "  bin/jas load:fault [ops] [failure-rate]   Prueba carga y fallos inyectados\n";
+        exit($command === 'help' ? 0 : 1);
+}
