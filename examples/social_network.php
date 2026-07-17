@@ -11,6 +11,7 @@ use Jah\JAS\Web\Request;
 use Jah\JAS\Web\Response;
 use Jah\JAS\Web\Router;
 use Jah\JAS\Web\SecurityHeadersMiddleware;
+use Jah\JAS\Web\Layout;
 
 $app = Jas::application('Red Social JAS')
     ->type('ConsultaPublicacion', ['id' => 'identifier'])
@@ -39,11 +40,13 @@ $runtime->handle('publicacion.consultar', static fn(array $input): array => [
 $router = (new Router($runtime))
     ->middleware(new SecurityHeadersMiddleware())
     ->route('GET', '/publicacion', 'publicacion.consultar', static function (array $post): Response {
-        return Response::html(new Page('Publicación JAS', Html::element('main', [],
-            Html::element('h1', [], 'Publicación'),
-            Html::element('p', [], $post['contenido']),
-            Html::element('small', [], 'Autor: ' . $post['autor_id'])
-        )));
+        $layout = (new Layout())
+            ->slot('header', Html::element('h1', [], 'Publicación'))
+            ->slot('main', Html::fragment(
+                Html::element('p', [], $post['contenido']),
+                Html::element('small', [], 'Autor: ' . $post['autor_id']),
+            ));
+        return Response::html(new Page('Publicación JAS', $layout));
     });
 
 $router->dispatch(Request::fromGlobals())->send();

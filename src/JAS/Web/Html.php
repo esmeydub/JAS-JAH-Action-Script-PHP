@@ -43,6 +43,7 @@ final class Html
             $attributePattern = '/^('
                 . 'class|id|title|name|value|type|method|action|href|src|alt|role|for|lang|charset|content|'
                 . 'disabled|required|checked|selected|readonly|multiple|placeholder|autocomplete|'
+                . 'scope|colspan|rowspan|tabindex|rel|min|max|step|accept|enctype|'
                 . 'aria-[a-z0-9-]+|data-[a-z0-9-]+'
                 . ')$/';
             $allowedName = is_string($name) && preg_match($attributePattern, $name);

@@ -20,9 +20,12 @@ use Jah\JAS\Security\AuthStore;
 use Jah\JAS\Security\RolePolicy;
 use Jah\JAS\Web\Form;
 use Jah\JAS\Web\TraceMiddleware;
+use Jah\JAS\Web\Middleware;
 use Jah\JAS\Observability\JahLogger;
 use Jah\JAS\Observability\HealthRegistry;
 use Jah\JAS\Jas;
+use Jah\JAS\Security\KeyRing;
+use Jah\JAS\Web\SecureCookieJar;
 
 $throws = static function (callable $operation, string $expected): void {
     try { $operation(); } catch (Throwable $e) { if ($e->getMessage() === $expected) return; throw $e; }
@@ -72,6 +75,62 @@ if ($dynamicRouter->url('perfiles.show', ['id' => 'USER-1'], ['tab' => 'security
 $dynamic = $dynamicRouter->dispatch(new Request('GET', '/perfiles/USER-1'));
 if ($dynamic->status !== 200 || $dynamic->body !== 'USER-1:USER-1') throw new RuntimeException('dynamic_route_failed');
 if ($dynamicRouter->dispatch(new Request('GET', '/perfiles/USER-1', ['id' => 'USER-2']))->status !== 400) throw new RuntimeException('route_parameter_conflict_accepted');
+
+$groupGuard = new class implements Middleware {
+    public int $calls = 0;
+    public function process(Request $request, callable $next): Response
+    {
+        $this->calls++;
+        $response = $next($request);
+        return new Response($response->body, $response->status, $response->contentType, $response->headers + ['X-JAS-Group' => 'applied']);
+    }
+};
+$routeGuard = new class implements Middleware {
+    public int $calls = 0;
+    public function process(Request $request, callable $next): Response
+    {
+        $this->calls++;
+        if (($request->attributes['route_template'] ?? null) !== '/api/v1/perfiles/{id}') return new Response('route_metadata_missing', 500);
+        $response = $next($request);
+        return new Response($response->body, $response->status, $response->contentType, $response->headers + ['X-JAS-Route' => 'applied']);
+    }
+};
+$groupedRouter = new Router($webRuntime);
+$groupedRouter->group('/api', [$groupGuard], static function (Router $api) use ($routeGuard): void {
+    $api->group('/v1', [], static function (Router $v1) use ($routeGuard): void {
+        $v1->route(
+            'GET', '/perfiles/{id}', 'perfil.consultar',
+            static fn(array $profile, array $result, Request $request): Response => new Response($profile['id'] . ':' . $request->attributes['route_name']),
+            'api.perfiles.show',
+            [$routeGuard]
+        );
+    });
+});
+$groupedRouter->route('GET', '/perfil', 'perfil.consultar', static fn(array $profile): Response => new Response($profile['id']), 'perfil.ungrouped');
+if ($groupedRouter->url('api.perfiles.show', ['id' => 'USER-1']) !== '/api/v1/perfiles/USER-1') throw new RuntimeException('grouped_route_url_failed');
+$grouped = $groupedRouter->dispatch(new Request('GET', '/api/v1/perfiles/USER-1'));
+if ($grouped->status !== 200 || $grouped->body !== 'USER-1:api.perfiles.show') throw new RuntimeException('grouped_route_failed');
+if (($grouped->headers['X-JAS-Group'] ?? null) !== 'applied' || ($grouped->headers['X-JAS-Route'] ?? null) !== 'applied') throw new RuntimeException('grouped_middleware_failed');
+if ($groupGuard->calls !== 1 || $routeGuard->calls !== 1) throw new RuntimeException('route_middleware_call_count_invalid');
+if (isset($groupedRouter->dispatch(new Request('GET', '/perfil', ['id' => 'USER-1']))->headers['X-JAS-Group'])) throw new RuntimeException('group_middleware_leaked');
+$throws(fn() => $groupedRouter->group('/bad/{tenant}', [], static function (): void {}), 'http_group_prefix_invalid');
+$throws(fn() => $groupedRouter->route('GET', '/invalid', 'perfil.consultar', static fn(): Response => new Response('bad'), middleware: ['invalid']), 'http_middleware_invalid');
+
+$cookieJar = (new SecureCookieJar(new KeyRing(['web-2026' => random_bytes(32)], 'web-2026')))
+    ->define('identity', 'identifier', 900)
+    ->define('page_size', 'positive-int', 3_600, 'Lax');
+$identityCookie = $cookieJar->issue('identity', 'USER-1', 1_800_000_000);
+if (!str_contains($identityCookie->header(), 'Path=/; Secure; HttpOnly; SameSite=Strict')) throw new RuntimeException('secure_cookie_attributes_missing');
+if ($cookieJar->read('identity', [$identityCookie->name => $identityCookie->value], 1_800_000_100) !== 'USER-1') throw new RuntimeException('typed_cookie_roundtrip_failed');
+$cookieResponse = (new Response('cookies'))
+    ->withCookie($identityCookie)
+    ->withCookie($cookieJar->issue('page_size', 25, 1_800_000_000));
+if (!is_array($cookieResponse->headers['Set-Cookie'] ?? null) || count($cookieResponse->headers['Set-Cookie']) !== 2) throw new RuntimeException('multiple_set_cookie_failed');
+$tamperedCookie = substr($identityCookie->value, 0, -1) . ($identityCookie->value[-1] === 'A' ? 'B' : 'A');
+$throws(fn() => $cookieJar->read('identity', [$identityCookie->name => $tamperedCookie], 1_800_000_100), 'secure_cookie_invalid');
+$throws(fn() => $cookieJar->read('identity', [$identityCookie->name => $identityCookie->value], 1_800_001_000), 'secure_cookie_expired');
+$throws(fn() => $cookieJar->issue('page_size', '25'), 'cookie_value_type_invalid');
+if (!str_contains($cookieJar->forget('identity', 1_800_000_000)->header(), 'Max-Age=0')) throw new RuntimeException('secure_cookie_forget_failed');
 
 $csrf = str_repeat('c', 64);
 $secureRouter = (new Router($webRuntime))

@@ -101,6 +101,8 @@ final class TypeRegistry
             'mixed', 'any' => true, 'null' => $value === null,
             'string' => is_string($value), 'non-empty-string' => is_string($value) && trim($value) !== '',
             'identifier' => is_string($value) && preg_match('/^[A-Za-z0-9_.:-]{1,128}$/', $value) === 1,
+            'date' => self::validDate($value), 'datetime' => self::validDateTime($value),
+            'timezone' => self::validTimezone($value),
             'int', 'integer' => is_int($value), 'positive-int' => is_int($value) && $value > 0,
             'non-negative-int' => is_int($value) && $value >= 0,
             'float' => is_float($value), 'number' => is_int($value) || is_float($value),
@@ -109,5 +111,28 @@ final class TypeRegistry
             'object' => is_object($value), 'callable' => is_callable($value),
             default => class_exists($type) && $value instanceof $type,
         };
+    }
+
+    private static function validDate(mixed $value): bool
+    {
+        if (!is_string($value) || preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $parts) !== 1) return false;
+        return checkdate((int) $parts[2], (int) $parts[3], (int) $parts[1]);
+    }
+
+    private static function validDateTime(mixed $value): bool
+    {
+        if (!is_string($value) || preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})$/', $value) !== 1) return false;
+        $format = str_ends_with($value, 'Z') ? '!Y-m-d\TH:i:s\Z' : '!Y-m-d\TH:i:sP';
+        $date = \DateTimeImmutable::createFromFormat($format, $value);
+        $errors = \DateTimeImmutable::getLastErrors();
+        return $date instanceof \DateTimeImmutable
+            && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0))
+            && $date->format(substr($format, 1)) === $value;
+    }
+
+    private static function validTimezone(mixed $value): bool
+    {
+        if (!is_string($value) || $value === '' || strlen($value) > 128) return false;
+        try { new \DateTimeZone($value); return true; } catch (\Throwable) { return false; }
     }
 }

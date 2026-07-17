@@ -255,6 +255,29 @@ Estado: **en progreso**
 - Auditoría de accesibilidad de la aplicación de referencia pasa.
 - Todos los endpoints atraviesan contratos gobernados.
 
+### Avance verificado
+
+- `Router` admite grupos anidados con prefijos estáticos, middleware heredable y middleware aislado por ruta.
+- Las rutas agrupadas conservan nombres, generación segura de URL y metadatos de nombre, plantilla y acción durante la ejecución.
+- Cada ruta sigue exigiendo una acción de `GovernedRuntime`; los grupos no crean un camino alterno al contrato.
+- `SecureCookieJar` define tipos y vencimiento antes de emitir valores, cifra y autentica mediante `KeyRing` y rechaza alteración, cambio de propósito y expiración.
+- Las cookies usan prefijo `__Host-`, `Path=/`, `Secure`, `HttpOnly` y `SameSite`; `Response` soporta múltiples encabezados `Set-Cookie` sin combinarlos.
+- `UploadVault` estabiliza el archivo en staging privado, impone tamaño incremental, detecta MIME real, valida firmas conocidas y exige un escáner que falla cerrado.
+- El contenido aprobado se cifra por bloques fuera del document root; DataCore conserva metadatos tipados y sensibles cifrados, mientras auditoría registra custodia y lectura.
+- La lectura exige propietario y verifica autenticidad de bloques, cantidad, tamaño y SHA-256; contenido activo, traversal, corrupción y acceso cruzado se rechazan.
+- `Layout` restringe slots a landmarks semánticos, exige contenido principal e incluye navegación para saltar bloques repetidos.
+- `DataTable` exige caption y contrato completo de filas/columnas; produce encabezados accesibles y región navegable sin omitir escape por defecto.
+- `Pagination` usa rutas con nombre, valida rangos y genera navegación acotada con estado actual y relaciones anterior/siguiente.
+- `ErrorPage` publica mensajes permitidos para estados conocidos; el router ya no devuelve excepciones ni detalles internos en errores 400/404/422/500.
+- `FormControl` añade fechas con rango, fecha/hora normalizada a UTC, zonas IANA, selects con allowlist y archivos ligados a `UploadPolicy`.
+- `Form::submit()` verifica CSRF en profundidad, opciones simples/múltiples y archivos HTTP; el renderer genera multipart y relaciones accesibles de error.
+- `TypeRegistry` reconoce `date`, `datetime` y `timezone` con validación estricta que rechaza normalización silenciosa de fechas imposibles.
+- `TranslationCatalog` valida claves, placeholders y parámetros tipados; catálogos secundarios conservan el esquema del fallback y pueden ser parciales.
+- `LocaleNegotiator` limita y analiza `Accept-Language` contra allowlist sin usar el locale como ruta; componentes y errores comparten un `Translator` con `es-MX` y `en-US` nativos.
+- `AccessibilityAudit` reporta hallazgos estructurales por criterio WCAG 2.2 y exige evidencia separada para contraste, reflow, teclado, foco, objetivos, autenticación y lector de pantalla.
+- La aplicación de referencia usa landmarks JAS y pasa la auditoría automatizada; un documento adversarial confirma detección de fallas. La evidencia manual real sigue pendiente y la fase permanece abierta.
+- Pruebas positivas y negativas de grupos, middleware, cookies, uploads, componentes, formularios, i18n y accesibilidad: PASS; `JAS ACCESSIBILITY: PASS`; `JAS I18N: PASS`; `JAS ADVANCED FORMS: PASS`; `JAS COMPONENTS: PASS`; `JAS UPLOAD CUSTODY: PASS`; suite completa: `JAS SUITE: PASS`.
+
 ---
 
 ## Fase 7 — Herramientas y experiencia de desarrollo

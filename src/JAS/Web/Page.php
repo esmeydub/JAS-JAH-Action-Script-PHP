@@ -11,7 +11,7 @@ final class Page implements Component
     public function __construct(private readonly string $title, private readonly Component|SafeHtml $content, private readonly string $language = 'es')
     {
         if ($title === '' || strlen($title) > 160) throw new InvalidArgumentException('page_title_invalid');
-        if (!preg_match('/^[a-z]{2}(-[A-Z]{2})?$/', $language)) throw new InvalidArgumentException('page_language_invalid');
+        if (!LocaleNegotiator::valid($language)) throw new InvalidArgumentException('page_language_invalid');
     }
 
     public function render(): SafeHtml
