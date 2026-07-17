@@ -1,6 +1,6 @@
 # Plan normativo del servidor LSP de JAS
 
-Estado: **en progreso; L0–L6 completadas, L7 es la siguiente acción**
+Estado: **completado; L0–L7 verificadas el 2026-07-17**
 
 ## Objetivo y frontera inmutable
 
@@ -185,7 +185,7 @@ JASB/PHP aportan además corrupción binaria, replay, Unicode, paths y lifecycle
 
 ## Fase L7 — Interoperabilidad y distribución
 
-Estado: **pendiente; siguiente acción obligatoria**
+Estado: **completada**
 
 - Probar contratos, JSON-RPC, integración completa y seguridad.
 - Validar Neovim, Emacs/Eglot, Sublime LSP y al menos otro cliente configurable.
@@ -193,9 +193,33 @@ Estado: **pendiente; siguiente acción obligatoria**
 - Publicar ejecutable, licencia, SBOM, SHA-256, firma del artefacto, procedencia y versiones compatibles.
 - Buscar builds reproducibles; aplicar firma de código/notarización donde corresponda.
 
+Cierre verificado: `tests/test_jas_lsp_clients.sh` completa lifecycle estándar
+con los perfiles de capacidades de Neovim, Emacs/Eglot, Sublime LSP y Helix,
+incluida negociación UTF-8/UTF-16, cambios documentales, rename y anotaciones.
+Esta es evidencia de interoperabilidad de protocolo reproducible; no se presenta
+como una sesión manual en aplicaciones gráficas que no están instaladas en el
+runner.
+
+Además, el binario oficial portable y verificado de Neovim 0.12.4 inicia el
+bridge como cliente real, negocia capacidades, adjunta un documento PHP, obtiene
+hover semántico y completa shutdown/exit. CI fija el SHA-256 del editor usado:
+`JAS LSP REAL NEOVIM CLIENT: PASS`.
+
+`package.sh` produce para Linux x86-64 un ELF estático, launcher de argumentos
+fijos, licencia, SBOM SPDX tag-value y procedencia JAS nativa. Dos builds con el
+mismo source/toolchain/epoch son idénticos; SHA-256, firma Ed25519 separada,
+verificación de manifiesto exacto e instalación limpia pasan de extremo a
+extremo: `JAS LSP REPRODUCIBLE SIGNED DISTRIBUTION: PASS`. La firma separada no
+rompe la reproducibilidad del archivo.
+
+GitHub Actions construye el paquete y, en pushes, genera atestación Sigstore
+ligada al repositorio y commit. Sólo Linux x86-64 se declara distribuible. ARM64,
+Windows y macOS permanecen sin artefacto hasta contar con ejecución real de toda
+la suite en esas plataformas; esta limitación no se oculta como compatibilidad.
+
 ## Definición de terminado
 
-El nombre oficial seguirá siendo `JAS Language Intelligence Engine` hasta que:
+La definición de terminado queda satisfecha porque:
 
 - un editor estándar complete el lifecycle LSP;
 - cambios sin guardar produzcan diagnósticos;
@@ -206,6 +230,6 @@ El nombre oficial seguirá siendo `JAS Language Intelligence Engine` hasta que:
 - suites PHP, C++, protocolo, integración, editores y seguridad pasen;
 - exista al menos un binario firmado y reproduciblemente instalable.
 
-Después podrá denominarse:
+El componente puede denominarse:
 
 **JAS Language Server with an external C++ LSP compatibility bridge**.

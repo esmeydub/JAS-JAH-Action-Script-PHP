@@ -100,9 +100,9 @@ El motor PHP también ofrece un servicio persistente JASB con documentos abierto
 posiciones Unicode, lifecycle, diagnósticos y navegación. El adaptador externo
 `sdk/cpp/lsp/jas_lsp_bridge.cpp` ya completa el lifecycle LSP/JSON-RPC estándar
 por stdio y traduce la allowlist inicial. JSON sólo existe en ese proceso C++:
-el motor PHP y DataCore reciben exclusivamente JASB/JASL firmado. La
-interoperabilidad completa, el hardening y la distribución siguen la Puerta 8.5,
-por lo que aún se documenta como compatibilidad LSP en desarrollo.
+el motor PHP y DataCore reciben exclusivamente JASB/JASL firmado. La Puerta 8.5
+está cerrada con seguridad L6 y distribución/interoperabilidad L7 verificadas.
+El paquete y sus límites están documentados en `docs/JAS_LSP_DISTRIBUTION.md`.
 
 ```bash
 php bin/jas language:diagnostics mi-proyecto
@@ -113,6 +113,7 @@ php bin/jas language:rename mi-proyecto app/Actions/Crear.php 8 25 Solicitud
 php bin/jas language:rename mi-proyecto app/Actions/Crear.php 8 25 Solicitud --apply
 make -C sdk/cpp/lsp test
 sdk/cpp/lsp/jas-lsp-bridge "$(command -v php)" "$PWD/bin/jas" "$PWD/mi-proyecto"
+tests/test_jas_lsp_distribution.sh
 ```
 
 `language:rename` sólo muestra el plan de cambios de forma predeterminada. Con

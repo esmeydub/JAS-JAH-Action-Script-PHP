@@ -2,7 +2,7 @@ CXX ?= g++
 CXXFLAGS ?= -std=c++20 -O2 -Wall -Wextra -Wpedantic -Werror
 LDLIBS ?= -lcrypto -pthread
 
-.PHONY: all test clean
+.PHONY: all test package clean
 
 all: jas-lsp-bridge
 
@@ -15,7 +15,12 @@ test: jas-lsp-bridge
 	../../../tests/test_jas_lsp_bridge.sh ./jas-lsp-bridge /tmp/jas-lsp-bridge-timeout-test /tmp/jas-lsp-bridge-rate-test
 	../../../tests/test_jas_lsp_capabilities.sh ./jas-lsp-bridge
 	../../../tests/test_jas_lsp_fuzz.sh ./jas-lsp-bridge
+	../../../tests/test_jas_lsp_clients.sh ./jas-lsp-bridge
+	../../../tests/test_jas_lsp_neovim.sh "" ./jas-lsp-bridge
 	rm -f /tmp/jas-lsp-bridge-timeout-test /tmp/jas-lsp-bridge-rate-test
+
+package:
+	./package.sh
 
 clean:
 	rm -f jas-lsp-bridge

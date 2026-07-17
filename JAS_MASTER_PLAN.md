@@ -319,7 +319,7 @@ Estado: **completada**
 - `analyze` reconstruye el grafo de producción mediante el lector literal seguro, por lo que contratos, tipos, eventos o dependencias rotos hacen fallar CI sin ejecutar definiciones.
 - PHPStan 2.1.56 está integrado como PHAR externo con SHA-256 fijado, en nivel 5 para todo `src/JAS` y `src/DataCore`, sin Composer ni baseline; el workflow valida PHP 8.2/8.4 antes de aceptar cambios.
 - `JAS Language Intelligence Engine` ofrece por CLI diagnósticos, hover, definición, referencias y rename para tipos, dominios, acciones, eventos y capacidades; trabaja sobre PHP literal sin ejecutar código ni persistir JSON.
-- El proyecto no afirma compatibilidad con el Language Server Protocol estándar: no incorpora JSON-RPC por stdio, ciclo `initialize`, sincronización de documentos abiertos ni integración directa con editores.
+- El núcleo continúa como `JAS Language Intelligence Engine` puro PHP/JASB; la compatibilidad LSP estándar existe exclusivamente mediante el bridge C++ externo cerrado en la Puerta 8.5.
 - El rename usa vista previa, validación por clase de símbolo, detección de colisiones, hashes contra cambios concurrentes, bloqueo y reemplazo recuperable de todas las referencias; tipos, dominios, acciones y eventos también reciben un nombre de archivo físico canónico dentro de la misma operación atómica.
 - `app:docs` genera inventario técnico, fingerprint y diagramas Mermaid deterministas; `app:diagram` publica los grafos de dominios y contratos como artefacto independiente.
 - `app:compat` compara dos proyectos sin ejecutar sus definiciones y falla ante rupturas de tipos, acciones, eventos, prefijos, dependencias, capacidades o garantías de auditoría/idempotencia.
@@ -338,7 +338,7 @@ Estado: **completada**
 ### Criterios de salida
 
 - Proyecto nuevo llega a aplicación funcional siguiendo una sola guía.
-- El motor de inteligencia opera sobre tipos, acciones, eventos y capacidades sin presentarse como LSP estándar.
+- El motor PHP opera sobre tipos, acciones, eventos y capacidades sin JSON; sólo el paquete externo se presenta como servidor compatible con LSP.
 - Renombrado conserva referencias y nombres físicos canónicos.
 - CI rechaza contratos rotos y dependencias de dominio ilegales.
 
@@ -399,7 +399,7 @@ Estado: **completada**
 
 ## Puerta 8.5 — LSP estándar externo
 
-Estado: **en progreso; L0–L6 completadas, L7 es la siguiente acción**
+Estado: **completada; L0–L7 cerradas el 2026-07-17**
 
 Después de cerrar la Fase 8 se ejecutará íntegramente `JAS_LSP_PLAN.md`. El
 editor hablará LSP/JSON-RPC únicamente con `jas-lsp-bridge` externo en C++; el
@@ -435,8 +435,12 @@ ni incorporarán el bridge como dependencia del núcleo.
 - L6 cerrada: token bucket limita 250 mensajes/s con ráfaga 512 y reporte único; timeout, cancelación y 256 pendientes permanecen acotados sin configuración del editor.
 - El hijo PHP Linux entra en seccomp sin sockets y Landlock de sólo lectura para runtime, JAS y workspace; no puede escribir dentro o fuera del proyecto. Un kernel sin la frontera requerida falla cerrado.
 - Backend sustituido, escritura, socket local, ráfaga, timeout, backpressure y 500 mensajes JSON-RPC adversariales pasan; después del fuzz el lifecycle sigue respondiendo: `JAS LSP PROLONGED FUZZ: PASS`.
+- L7 cerrada: perfiles Neovim, Eglot, Sublime LSP y Helix completan lifecycle y negociación reproducible; la evidencia es de protocolo y no se disfraza como operación manual de GUIs ausentes.
+- Neovim 0.12.4 oficial y verificado actúa además como editor real: inicia el bridge, adjunta el documento, obtiene hover y completa shutdown/exit: `JAS LSP REAL NEOVIM CLIENT: PASS`.
+- El paquete Linux x86-64 contiene ELF estático, launcher seguro, licencia, SBOM SPDX y procedencia; dos builds son idénticos y la instalación firmada Ed25519 completa lifecycle: `JAS LSP REPRODUCIBLE SIGNED DISTRIBUTION: PASS`.
+- CI publica SHA-256 y atestación Sigstore ligada al commit. ARM64, Windows y macOS no se anuncian hasta validar realmente la suite completa en cada plataforma.
 
-No se iniciará la Fase 9 hasta cerrar esta puerta y registrar evidencia.
+La puerta queda cerrada. La siguiente fase normativa es la Fase 9.
 
 ---
 
@@ -502,7 +506,7 @@ cambio futuro de estado debe actualizar simultáneamente la fase y esta tabla.
 | 6 | Completada | JAS Web: `php tests/test_jas_web.php`, `php tests/test_jas_accessibility.php` y `php tests/test_jas_upload.php` |
 | 7 | Completada | Tooling y ciclo de proyecto: `php tests/test_jas_tooling.php`, `php tests/test_jas_language_engine.php`, `php tests/test_jas_project_lifecycle.php` y `php bin/jas static` |
 | 8 | Completada | Operación segura y calificación acelerada: `php tests/test_jas_operations_qualification.php 500`; 10,500/10,500 operaciones, integridad PASS; gate transversal: `php tests/run_all.php` |
-| 8.5 | En progreso | L0–L6 completas; sandbox Landlock/seccomp, rate limiting y fuzz PASS; L7 interoperabilidad/distribución es la siguiente: `make -C sdk/cpp/lsp test` |
+| 8.5 | Completada | L0–L7: protocolo, seguridad, perfiles de clientes y distribución estática firmada/reproducible: `make -C sdk/cpp/lsp test` y `tests/test_jas_lsp_distribution.sh` |
 | 9 | Pendiente | No iniciada |
 | 10 | Pendiente | No iniciada |
 
@@ -511,15 +515,14 @@ registrado es `JAS SUITE: PASS`.
 
 ## Próxima acción obligatoria
 
-Completar L7: validar clientes configurables reales y producir el paquete Linux
-reproducible con licencia, SBOM, SHA-256, firma/procedencia e instrucciones de
-instalación, sin incorporar JSON o C++ al núcleo PHP. No iniciar la Fase 9 antes
-de cerrar esta puerta.
+Iniciar la Fase 9 por su primer bloque: ampliar fuzzing/property tests y matriz
+de apagado forzado, manteniendo toda evidencia externa y sin autodeclarar una
+auditoría o certificación independiente.
 
 ## Resumen de trabajo restante
 
 - Fases 1–8: completadas.
-- Puerta 8.5: L0–L6 completadas; sólo L7 queda pendiente según `JAS_LSP_PLAN.md`.
+- Puerta 8.5: completada íntegramente; L0–L7 cerradas según `JAS_LSP_PLAN.md`.
 - Fase 9: pendiente completa; incluye fallos, red, rotación bajo carga, threat
   model y revisiones externas. La revisión criptográfica y el penetration test
   requieren especialistas independientes y no pueden autodeclararse.

@@ -1,9 +1,9 @@
 # Frontera de seguridad del servidor de lenguaje JAS
 
-Estado: L0–L6 completadas; bridge, lifecycle, capacidades, aislamiento, timeout,
-cancelación, backpressure, rename negociado y hardening verificados.
-Interoperabilidad y distribución L7 siguen abiertas; JAS todavía no se presenta
-como servidor LSP terminado.
+Estado: L0–L7 completadas; bridge, lifecycle, capacidades, aislamiento, timeout,
+cancelación, backpressure, rename, hardening, perfiles de clientes y distribución
+Linux x86-64 verificados. El componente externo puede presentarse como servidor
+JAS compatible con LSP; el núcleo PHP continúa sin JSON.
 
 ## Procesos y zonas de confianza
 
@@ -153,4 +153,5 @@ bridge nuevo desde cero. Cada request expira a los 15 segundos mediante un valor
 compilado que el editor no puede ampliar; el lector también limita frames PHP
 parciales. Las pruebas L6 cubren un backend sustituido, escritura, sockets,
 ráfagas y 500 mensajes malformados/prohibidos seguidos de lifecycle válido.
-Quedan pendientes interoperabilidad, artefactos firmados y revisión independiente.
+La revisión criptográfica y el penetration test independientes pertenecen a la
+Fase 9 y no se sustituyen por estas pruebas internas.

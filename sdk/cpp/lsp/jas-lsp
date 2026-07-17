@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+
+if test "$#" -gt 1; then
+    printf '%s\n' 'usage: jas-lsp [workspace]' >&2
+    exit 2
+fi
+: "${JAS_ROOT:?JAS_ROOT must point to the trusted JAS installation}"
+
+workspace=${1:-$PWD}
+php_binary=${JAS_PHP_BINARY:-}
+if test -z "$php_binary"; then
+    php_binary=$(command -v php) || {
+        printf '%s\n' 'jas-lsp could not locate PHP' >&2
+        exit 2
+    }
+fi
+
+launcher_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec "$launcher_dir/jas-lsp-bridge" "$php_binary" "$JAS_ROOT/bin/jas" "$workspace"

@@ -65,8 +65,8 @@ JAS turns those concerns into explicit definitions:
 | Tooling | Generators, analyzer, Language Intelligence Engine, health checks and generated documentation |
 
 Development follows the phase gates in
-[`JAS_MASTER_PLAN.md`](JAS_MASTER_PLAN.md). Phases 1–8 are complete; the external
-standard-LSP compatibility gate is active before security verification Phase 9.
+[`JAS_MASTER_PLAN.md`](JAS_MASTER_PLAN.md). Phases 1–8 and the external standard
+LSP gate are complete; security and failure verification Phase 9 is next.
 
 ## Architecture
 
@@ -98,9 +98,11 @@ different approvers and revalidates every row through DataCore contracts.
 - Linux is the currently verified platform
 - No Composer, Node, npm, JavaScript or JSON artifacts are required or accepted
 
-The optional external LSP bridge additionally requires a C++20 compiler,
-RapidJSON headers and OpenSSL 3 development files. These dependencies belong to
-the compatibility executable; the PHP/DataCore core remains pure PHP and JASB.
+Building the optional external LSP bridge from source requires a C++20 compiler,
+RapidJSON headers and OpenSSL 3 development files. The verified Linux x86-64
+package is statically linked and does not require those build dependencies on
+the target; PHP/JAS remain its explicit runtime. The PHP/DataCore core remains
+pure PHP and JASB.
 
 ```bash
 git clone https://github.com/esmeydub/JAS-JAH-Action-Script-PHP.git
@@ -121,11 +123,14 @@ To build and verify the external standard-LSP compatibility bridge:
 ```bash
 make -C sdk/cpp/lsp test
 sdk/cpp/lsp/jas-lsp-bridge "$(command -v php)" "$PWD/bin/jas" "$PWD"
+tests/test_jas_lsp_distribution.sh
 ```
 
 The executable uses stdio `Content-Length` framing for editors and starts the
 PHP semantic service through fixed arguments without a shell. JSON-RPC is
 confined to this C++ process; PHP and DataCore receive only authenticated JASB.
+Distribution, client-profile compatibility, verification and installation are
+documented in [`docs/JAS_LSP_DISTRIBUTION.md`](docs/JAS_LSP_DISTRIBUTION.md).
 
 The suite includes positive, negative, concurrency, crash-recovery and tamper
 tests. Its fuzz stage performs 500 valid round trips and rejects 500 corrupted
