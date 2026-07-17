@@ -354,6 +354,9 @@ Estado: **en progreso**
 - El reproceso exige doble control ligado a la huella completa del trabajo fallido, valida al aprobador y crea un trabajo nuevo con referencias al original y a la aprobación.
 - Repetir el reproceso devuelve el mismo trabajo; una aprobación consumida puede retomarse después de backpressure sin abrir una segunda autorización.
 - CLI, auditoría, métricas y procedimiento operativo están documentados en `docs/JAS_OPERATIONS.md`; pruebas adversariales: `JAS DEAD LETTER: PASS`.
+- `OperationalHealthEndpoint` separa liveness, readiness y diagnóstico autenticado: liveness no toca dependencias, readiness no revela componentes y el detalle falla cerrado antes de ejecutar checks.
+- `public/health.php` comprueba PHP, escritura de runtime/DataCore y umbral de disco; usa texto nativo sin JSON, headers restrictivos, `503` con `Retry-After` y token operativo de al menos 32 bytes para detalles.
+- Pruebas positivas y adversariales cubren dependencia caída, excepción sensible, autorización fallida, método y ruta inválidos; `JAS OPERATIONAL HEALTH: PASS`.
 
 ### Alcance
 
@@ -435,7 +438,7 @@ cambio futuro de estado debe actualizar simultáneamente la fase y esta tabla.
 | 5 | Completada | Identidad y acceso institucional: `php tests/test_jas_identity.php` y `php tests/test_jas_security.php` |
 | 6 | Completada | JAS Web: `php tests/test_jas_web.php`, `php tests/test_jas_accessibility.php` y `php tests/test_jas_upload.php` |
 | 7 | Completada | Tooling y ciclo de proyecto: `php tests/test_jas_tooling.php`, `php tests/test_jas_language_engine.php`, `php tests/test_jas_project_lifecycle.php` y `php bin/jas static` |
-| 8 | En progreso | DLQ y reproceso gobernado: `php tests/test_jas_dead_letter.php`; gate transversal: `php tests/run_all.php` |
+| 8 | En progreso | DLQ, reproceso y health HTTP: `php tests/test_jas_dead_letter.php`, `php tests/test_jas_health.php`; gate transversal: `php tests/run_all.php` |
 | 9 | Pendiente | No iniciada |
 | 10 | Pendiente | No iniciada |
 
@@ -444,6 +447,7 @@ registrado es `JAS SUITE: PASS`.
 
 ## Próxima acción obligatoria
 
-Continuar **Fase 8 — Escala y operación** con liveness, readiness y health HTTP,
-seguido por alertas y límites preventivos de disco. No iniciar la Fase 9 hasta
-cerrar y registrar todos los criterios de salida de la Fase 8.
+Continuar **Fase 8 — Escala y operación** con alertas y límites preventivos de
+disco, seguido por retención y compactación automática de logs/journals. No
+iniciar la Fase 9 hasta cerrar y registrar todos los criterios de salida de la
+Fase 8.

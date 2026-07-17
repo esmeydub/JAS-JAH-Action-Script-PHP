@@ -44,3 +44,37 @@ operador. Una interfaz remota debe resolver las identidades con
 Las operaciones confirmadas se registran en `AuditJournal`; las métricas
 `queue.dead_letter.reprocess_requested` y `queue.dead_letter.reprocessed`
 permiten alertar sobre volumen o abuso.
+
+## Liveness, readiness y health HTTP
+
+El plano operativo está disponible mediante `public/health.php` y siempre
+responde como texto PHP/JAS nativo, nunca JSON. En producción, el proxy debe
+mapear las rutas canónicas al mismo script:
+
+```text
+GET /health/live
+GET /health/ready
+GET /health
+```
+
+La llamada directa `GET /health.php/live` y `GET /health.php/ready` también es
+válida cuando no existe rewrite. Todas las respuestas incluyen `no-store`,
+`nosniff`, protección contra frames, CSP y políticas restrictivas.
+
+- `/health/live` sólo demuestra que PHP puede responder. No abre DataCore, no
+  consulta colas y no debe reiniciar un proceso por una dependencia caída.
+- `/health/ready` ejecuta las comprobaciones de PHP, runtime, DataCore y espacio
+  libre. Devuelve `200 JAS READY` o `503 JAS NOT READY`, sin nombres internos,
+  rutas, excepciones ni tiempos. Un 503 incluye `Retry-After`.
+- `/health` expone el estado individual y duración de cada comprobación sólo a
+  operadores autenticados. Requiere `Authorization: Bearer <token>` y
+  `JAS_HEALTH_TOKEN` de al menos 32 bytes; si falta o el autorizador falla,
+  responde 401 antes de ejecutar las comprobaciones.
+
+El umbral preventivo se configura con `JAS_HEALTH_MIN_FREE_BYTES`; el mínimo
+aceptado es 16 MiB y el valor predeterminado es 256 MiB. Este umbral sólo marca
+readiness: las alertas y límites progresivos de disco se implementan en el
+siguiente bloque de la Fase 8.
+
+No se debe usar `/health` como sonda pública ni incluir el token en URLs, logs o
+manifiestos versionados.

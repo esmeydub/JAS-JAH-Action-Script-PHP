@@ -95,7 +95,7 @@ different approvers and revalidates every row through DataCore contracts.
 - Sodium extension
 - PCNTL extension for workers and the complete test suite
 - Linux is the currently verified platform
-- Composer is optional; JAS includes a native autoloader
+- No Composer, Node, npm, JavaScript or JSON artifacts are required or accepted
 
 ```bash
 git clone https://github.com/esmeydub/JAS-JAH-Action-Script-PHP.git
@@ -199,6 +199,8 @@ For 5,000 records: create 0.068148 s, verify 0.031700 s and restore
 
 ```bash
 php bin/jas health
+curl --fail http://127.0.0.1/health/live
+curl --fail http://127.0.0.1/health/ready
 php bin/jas test
 php bin/jas make:project /tmp/jas-demo "JAS Demo"
 php bin/jas analyze /tmp/jas-demo
