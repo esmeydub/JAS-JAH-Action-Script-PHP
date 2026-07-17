@@ -1,6 +1,6 @@
 {
     "name": "jah/jas",
-    "description": "JAS (Jah ActionScript): runtime de acciones, eventos, objetos activos y estado persistente en PHP.",
+    "description": "JAS — JAH Action Script PHP: runtime de acciones, eventos, objetos activos y estado persistente en PHP.",
     "type": "project",
     "license": "MIT",
     "require": {

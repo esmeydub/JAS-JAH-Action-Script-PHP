@@ -7,7 +7,7 @@ namespace Jah\JAS\Security;
 use Jah\DataCore\PhpSerializer;
 use RuntimeException;
 
-final class AuthStore
+final class AuthStore implements IdentityProvider
 {
     private string $file;
     private string $lock;

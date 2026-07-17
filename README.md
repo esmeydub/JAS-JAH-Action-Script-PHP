@@ -4,9 +4,11 @@
 
 **Hackathon category:** Developer Tools
 **Status:** working prototype, JAS 1.3.1
-**Built with:** Codex and the OpenAI Build Week GPT-5.6 workflow
+**Development workflow:** Codex SOL, Medium reasoning effort
+**Build Week disclosure:** GPT-5.6 is part of the required hackathon evaluation,
+not a JAS runtime dependency
 
-JAS (Jah ActionScript) is an organized, typed layer over PHP for building web
+JAS — JAH Action Script PHP is an organized, typed layer over PHP for building web
 systems whose contracts, authorization, persistence and audit rules should not
 depend on developer discipline alone. It targets the point where a normal PHP
 application becomes difficult to sustain: many teams, many domains, long-lived
@@ -57,8 +59,8 @@ JAS turns those concerns into explicit definitions:
 | Tooling | Project/domain/type/action generators, analyzer, health checks and generated documentation |
 
 Development follows the phase gates in
-[`JAS_MASTER_PLAN.md`](JAS_MASTER_PLAN.md). Phases 1–4 are complete; institutional
-identity and access is the active phase.
+[`JAS_MASTER_PLAN.md`](JAS_MASTER_PLAN.md). Phases 1–5 are complete; the complete
+JAS Web experience is the active phase.
 
 ## Architecture
 
@@ -132,17 +134,26 @@ audit behavior, handler and safe HTML response using public JAS APIs.
 5. Run `php tests/test_datacore_backup.php` to demonstrate tamper rejection and restore.
 6. Show the SQL attack tests: malicious SQL values remain data and SQL changes do not contaminate DataCore.
 
-## How Codex and GPT-5.6 were used
+## Codex SOL workflow and the role of GPT-5.6
 
-Codex served as the engineering agent for the Build Week implementation. The
-GPT-5.6/Codex workflow was used to inspect the inherited PHP prototype, build a
-normative phase plan, refactor duplicated runtime concepts, implement missing
-security and recovery paths, generate adversarial tests, execute the suite and
-document measured limitations.
+The repository work documented here was performed in **Codex SOL** with
+**Medium reasoning effort**. Codex SOL was the engineering workflow used to
+inspect the inherited PHP prototype, build a normative phase plan, refactor
+duplicated runtime concepts, implement missing security and recovery paths,
+generate adversarial tests, execute the suite and document measured
+limitations.
+
+OpenAI Build Week requires the submission to explain its relationship with
+**GPT-5.6**. For JAS, GPT-5.6 belongs to the hackathon's development-time review
+and evaluation requirement; it is not embedded in the product and is not a
+runtime dependency. This README does not relabel the Codex SOL work as a
+GPT-5.6 session. A separate GPT-5.6 review or demo and its `/feedback` Session ID
+must be reported in the submission only after that session has actually been
+completed.
 
 Important human-directed decisions were preserved throughout the work:
 
-- the project is JAS (Jah ActionScript), not a generic PHP framework;
+- the project is JAS — JAH Action Script PHP, not a generic PHP framework;
 - no JSON is used as an operational runtime format;
 - no external AI connector belongs in the JAS runtime;
 - DataCore remains the source of truth;
@@ -210,8 +221,8 @@ php benchmarks/datacore_backup.php 5000
 - Sensitive DataCore fields can be encrypted and cannot be exposed to SQL Mirror.
 - Signed evidence detects alteration; it does not prevent host-level compromise.
 - Snapshot point-in-time currently has snapshot granularity, not per-WAL-event precision.
-- The institutional identity phase is in progress; the older flat-file `AuthStore`
-  is not the final government-oriented identity implementation.
+- New systems use encrypted DataCore institutional identity; the older flat-file
+  `AuthStore` remains only as a compatibility provider.
 - Production deployment requires key management, least-privilege filesystem
   accounts, monitoring, external review and disaster exercises for the target environment.
 

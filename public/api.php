@@ -51,8 +51,8 @@ try {
             $salkStatus = $runtime->runSalkPreflight('api.status');
             $output = [
                 'status' => 'success',
-                'service' => 'JAS — Jah ActionScript',
-                'runtime' => 'JAS (Jah ActionScript) en PHP puro',
+                'service' => 'JAS — JAH Action Script PHP',
+                'runtime' => 'JAS — JAH Action Script PHP en PHP puro',
                 'memory' => 'DataCoreTurbo + MemoryPyramid Hot/Warm/Cold',
                 'salk' => $salkStatus['result'] ?? [],
             ];

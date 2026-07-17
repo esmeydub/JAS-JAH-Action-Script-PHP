@@ -33,7 +33,7 @@ $runtime = $app->runtime(
 $runtime->handle('publicacion.consultar', static fn(array $input): array => [
     'id' => $input['id'],
     'autor_id' => 'USER-1',
-    'contenido' => 'Aplicación organizada con Jah ActionScript',
+    'contenido' => 'Aplicación organizada con JAS — JAH Action Script PHP',
 ]);
 
 $router = (new Router($runtime))

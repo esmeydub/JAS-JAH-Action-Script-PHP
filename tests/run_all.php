@@ -25,6 +25,7 @@ $tests = [
     $root . '/tests/test_jas_cluster.php',
     $root . '/tests/test_jas_enterprise.php',
     $root . '/tests/test_jas_security.php',
+    $root . '/tests/test_jas_identity.php',
     $root . '/tests/test_jas_regressions.php',
     $root . '/tests/run.php',
     $root . '/php_actionscript_php_doc/test_compiler.php',

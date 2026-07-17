@@ -1,7 +1,7 @@
 # Plan maestro de JAS
 
 Estado: **activo y normativo**
-Producto: **JAS — Jah ActionScript**
+Producto: **JAS — JAH Action Script PHP**
 Objetivo: capa organizada, tipada y segura sobre PHP para aplicaciones web empresariales y gubernamentales sostenibles, con DataCore como base de datos nativa.
 
 ## Reglas de ejecución
@@ -193,7 +193,7 @@ Estado: **completada**
 
 ## Fase 5 — Identidad y acceso institucional
 
-Estado: **en progreso**
+Estado: **completada**
 
 ### Alcance
 
@@ -213,11 +213,29 @@ Estado: **en progreso**
 - Operaciones críticas exigen dos identidades autorizadas.
 - Cambios de permisos quedan auditados.
 
+### Evidencia de cierre
+
+- `InstitutionalIdentityService` almacena usuarios, roles, asignaciones, sesiones, dispositivos, MFA y credenciales de servicio en colecciones tipadas DataCore.
+- Nombre visible, contraseña, secreto TOTP, recuperaciones, permisos, incompatibilidades, identidad de sesión y secretos de servicio permanecen cifrados físicamente.
+- Los tokens nunca se almacenan: IDs de sesión, desafío y lookup se derivan mediante HMAC con pepper institucional separado.
+- MFA TOTP usa RFC 6238, alta temporal, desafío previo a crear sesión, ventana limitada y revocación de sesiones anteriores al activarlo.
+- Códigos de recuperación se muestran una vez, se almacenan con `password_hash` y se eliminan después del primer uso; replay y expiración son rechazados.
+- Dispositivos y sesiones son visibles al propietario, revocables y evaluados por expiración en cada acceso.
+- Roles temporales y delegados vencen sin renovar sesión; revocaciones y cambios de permisos se reflejan dinámicamente.
+- Separación de funciones comprueba incompatibilidad en ambos sentidos e impide combinar roles críticos.
+- Solicitud y aprobación críticas exigen MFA, permisos separados, dos identidades y autorización consumible ligada a acción/request/huella.
+- Credenciales de servicio se emiten una vez, rotan con versión monotónica e invalidan inmediatamente el secreto anterior.
+- `AuthMiddleware` usa `AuthorizationProvider` dinámico y conserva compatibilidad explícita con `AuthStore` heredado.
+- `WebAuthnAdapter` y `FederatedIdentityAdapter` definen extensiones opcionales; la criptografía concreta permanece fuera del núcleo para usar implementaciones auditadas.
+- Cambios de usuario, rol, permiso, asignación, MFA, sesión, aprobación y credencial generan evidencia en `AuditJournal`.
+- Pruebas negativas cubren bloqueo, contraseña, MFA inválido/vencido/replay, recuperación reutilizada, expiración, revocación, delegación, doble control y rotación.
+- Health, lint y suite completa: PASS; `JAS INSTITUTIONAL IDENTITY: PASS`.
+
 ---
 
 ## Fase 6 — JAS Web completo
 
-Estado: **pendiente**
+Estado: **en progreso**
 
 ### Alcance
 
