@@ -45,8 +45,8 @@ final class DataCoreTurbo
     {
         foreach (['data', 'index', 'index/lookup', 'index/terms', 'wal'] as $dir) {
             $path = "{$this->basePath}/{$dir}";
-            if (!is_dir($path)) {
-                mkdir($path, 0700, true);
+            if (!is_dir($path) && !@mkdir($path, 0700, true) && !is_dir($path)) {
+                throw new \RuntimeException("Cannot create DataCore directory: {$path}");
             }
         }
     }
@@ -856,7 +856,7 @@ final class DataCoreTurbo
             $line = hash('sha256', $indexKey) . ':' . $timestamp . ':' . rawurlencode($id) . "\n";
             $file = $this->postingFile($collection, $indexKey);
             $dir = dirname($file);
-            if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) {
+            if (!is_dir($dir) && !@mkdir($dir, 0700, true) && !is_dir($dir)) {
                 throw new \RuntimeException('Cannot create DataCore posting directory');
             }
             if (file_put_contents($file, $line, FILE_APPEND | LOCK_EX) === false) {
@@ -1029,7 +1029,7 @@ final class DataCoreTurbo
             "{$this->basePath}/index/lookup/{$collection}",
             "{$this->basePath}/index/terms/{$collection}",
         ] as $dir) {
-            if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) {
+            if (!is_dir($dir) && !@mkdir($dir, 0700, true) && !is_dir($dir)) {
                 throw new \RuntimeException('Cannot create DataCore index directory');
             }
         }

@@ -65,8 +65,10 @@ JAS turns those concerns into explicit definitions:
 | Tooling | Generators, analyzer, Language Intelligence Engine, health checks and generated documentation |
 
 Development follows the phase gates in
-[`JAS_MASTER_PLAN.md`](JAS_MASTER_PLAN.md). Phases 1–8 and the external standard
-LSP gate are complete; security and failure verification Phase 9 is next.
+[`JAS_MASTER_PLAN.md`](JAS_MASTER_PLAN.md). Phases 1–8, the external standard LSP
+gate and Phase 9 internal security verification are complete. Independent
+cryptographic review and penetration testing remain explicitly pending; Phase
+10 is the next implementation phase.
 
 ## Architecture
 
@@ -135,6 +137,11 @@ documented in [`docs/JAS_LSP_DISTRIBUTION.md`](docs/JAS_LSP_DISTRIBUTION.md).
 The suite includes positive, negative, concurrency, crash-recovery and tamper
 tests. Its fuzz stage performs 500 valid round trips and rejects 500 corrupted
 payloads.
+
+The Phase 9 gate additionally exercises concurrent DataCore writers, forced
+process death and restart, truncated transport, key rotation under load and
+adversarial forms. Its threat model and OWASP ASVS-oriented control map are in
+[`docs/JAS_SECURITY_VERIFICATION.md`](docs/JAS_SECURITY_VERIFICATION.md).
 
 ### Run the reference web application
 

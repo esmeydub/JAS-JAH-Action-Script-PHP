@@ -446,7 +446,7 @@ La puerta queda cerrada. La siguiente fase normativa es la Fase 9.
 
 ## Fase 9 — Verificación de seguridad y fallos
 
-Estado: **pendiente**
+Estado: **verificación interna completada; validación externa pendiente**
 
 ### Alcance
 
@@ -465,6 +465,28 @@ Estado: **pendiente**
 - Evidencia reproducible de recuperación ante fallos.
 - Límites de seguridad y supuestos documentados.
 - Informe externo registrado sin presentarlo como certificación universal.
+
+### Avance verificado
+
+- `tests/test_jas_phase9.php` ejecuta cuatro escritores DataCore en procesos
+  reales, mata un escritor durante flush continuo y comprueba tras reinicio que
+  cada superviviente es íntegro y corresponde a su ID.
+- La concurrencia descubrió y corrigió una carrera TOCTOU benigna al crear
+  directorios DataCore; la creación ahora tolera que otro proceso gane la carrera
+  y falla explícitamente si el directorio realmente no existe.
+- La misma puerta prueba fragmentación, truncación/pérdida simulada y límite de
+  frames, 1,000 operaciones cifradas durante rotación y retiro de claves, y 500
+  formularios adversariales con CSRF, campos desconocidos y XSS.
+- Las pruebas existentes complementan la puerta con JASB/LSP fuzzing, sockets
+  cuando el runner los permite, quorum/fencing, SQL hostil, recuperación,
+  backups alterados, identidad, autorización, colas y aislamiento de saturación.
+- `docs/JAS_SECURITY_VERIFICATION.md` registra fronteras de confianza, amenazas,
+  supuestos, límites y una matriz orientativa OWASP ASVS sin reclamar
+  certificación.
+- No quedan hallazgos críticos o altos conocidos de la verificación interna. La
+  revisión criptográfica y el penetration test deben realizarlos especialistas
+  independientes sobre una versión y despliegue concretos; por ello el criterio
+  de informe externo permanece abierto y no se falsifica como trabajo propio.
 
 ---
 
@@ -507,7 +529,7 @@ cambio futuro de estado debe actualizar simultáneamente la fase y esta tabla.
 | 7 | Completada | Tooling y ciclo de proyecto: protocolos SOL de desarrollo y aprendizaje verificados por `php tests/test_jas_tooling.php`; motor de lenguaje: `php tests/test_jas_language_engine.php`; ciclo: `php tests/test_jas_project_lifecycle.php`; análisis: `php bin/jas static` |
 | 8 | Completada | Operación segura y calificación acelerada: `php tests/test_jas_operations_qualification.php 500`; 10,500/10,500 operaciones, integridad PASS; gate transversal: `php tests/run_all.php` |
 | 8.5 | Completada | L0–L7: protocolo, seguridad, perfiles de clientes y distribución estática firmada/reproducible: `make -C sdk/cpp/lsp test` y `tests/test_jas_lsp_distribution.sh` |
-| 9 | Pendiente | No iniciada |
+| 9 | Interna completada / externa pendiente | `php tests/test_jas_phase9.php`, `php tests/run_all.php` y `docs/JAS_SECURITY_VERIFICATION.md`; revisión criptográfica y penetration test independientes aún no realizados |
 | 10 | Pendiente | No iniciada |
 
 La comprobación transversal vigente es `php tests/run_all.php`, cuyo resultado
@@ -515,16 +537,17 @@ registrado es `JAS SUITE: PASS`.
 
 ## Próxima acción obligatoria
 
-Iniciar la Fase 9 por su primer bloque: ampliar fuzzing/property tests y matriz
-de apagado forzado, manteniendo toda evidencia externa y sin autodeclarar una
-auditoría o certificación independiente.
+Iniciar la Fase 10 con el primer incremento vertical de la aplicación de
+referencia mientras se encarga por separado la revisión criptográfica y el
+penetration test externos de Fase 9. Un informe externo futuro debe registrar
+alcance, versión, entorno, hallazgos, remediación y retest.
 
 ## Resumen de trabajo restante
 
 - Fases 1–8: completadas.
 - Puerta 8.5: completada íntegramente; L0–L7 cerradas según `JAS_LSP_PLAN.md`.
-- Fase 9: pendiente completa; incluye fallos, red, rotación bajo carga, threat
-  model y revisiones externas. La revisión criptográfica y el penetration test
-  requieren especialistas independientes y no pueden autodeclararse.
+- Fase 9: implementación y verificación interna completadas. Sólo permanecen la
+  revisión criptográfica y el penetration test por especialistas independientes;
+  no pueden autodeclararse ni bloquear el inicio técnico de Fase 10.
 - Fase 10: pendiente completa; aplicación gubernamental/red social de referencia,
   pruebas integrales, congelación de API 2.0 y guía de migración.
