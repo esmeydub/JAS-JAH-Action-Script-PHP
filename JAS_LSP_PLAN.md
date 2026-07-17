@@ -89,8 +89,15 @@ dentro del ejecutable, OpenSSL 3 para SALK HMAC-SHA256, clave efímera por pipe,
 `fork`/`execl` con argv fijo y dos canales de stdio independientes. Un lector
 asíncrono multiplexa respuestas/notificaciones PHP mientras el hilo principal
 procesa frames LSP. `make -C sdk/cpp/lsp test` valida mensajes consecutivos y el
-lifecycle JSON-RPC 2.0 real. Antes de cerrar L3 faltan timeout de solicitudes,
-stderr acotado y pruebas adversariales de framing parcial/caída de PHP.
+lifecycle JSON-RPC 2.0 real. El hardening vigente añade comparación constante,
+UTF-8 estricto, rechazo de claves duplicadas, profundidad/elementos acotados,
+máximo de 256 requests activos con ID único, paths canónicos, entorno vacío,
+descriptores allowlisted, core dumps desactivados, `no_new_privs`, umask 077 y
+stderr del hijo sin salida. Las pruebas negativas cubren framing byte a byte,
+método ejecutable rechazado, ambigüedad de claves, Content-Length excesivo,
+rutas inválidas y ausencia de fuga. La caída de PHP termina el bridge con el
+mismo código y sin reiniciar estado parcial; el cliente debe reiniciar la sesión
+completa. Antes de cerrar L3 falta el timeout interno de solicitudes.
 
 ## Fase L4 — Capacidades mínimas
 
@@ -129,6 +136,11 @@ Cierre: un rename soportado actualiza referencias y archivo mediante una operaci
 - Fuzzing del parser, framing, JASB, Unicode, lifecycle y reinicios.
 
 Cierre: no hay ejecución, traversal, fuga sensible, crecimiento ilimitado ni caída persistente.
+
+Avance: límites de framing/árbol/strings/requests, UTF-8 estricto, paths
+canónicos, clave por descriptor, entorno y FDs mínimos, errores redactados y
+pruebas ASan/UBSan ya están aplicados al bridge Linux. Cancelación, timeout,
+rate limiting temporal, sandbox sin red y fuzzing prolongado siguen pendientes.
 
 ## Fase L7 — Interoperabilidad y distribución
 

@@ -109,3 +109,24 @@ implementar posiciones y rangos Unicode en L1.
   añadirá UTF-8 estricto, nombres de campo y semántica antes de publicar binarios.
 - No hay certificación externa. Fuzzing, sandbox por sistema operativo, revisión
   criptográfica y firma de distribución siguen siendo criterios de fases posteriores.
+
+## Controles implementados en el bridge Linux
+
+- RapidJSON usa validación UTF-8 y parsing iterativo; una segunda caminata limita
+  profundidad, elementos totales, contenedores, strings y claves duplicadas.
+- Sólo once métodos LSP pueden producir opcodes JASB; `executeCommand` y cualquier
+  método desconocido se rechazan localmente.
+- SALK se verifica con comparación constante. También se comprueban versión,
+  flags, timestamp, opcode, sesión, longitudes e ID de respuesta activo.
+- Hay un máximo de 256 requests simultáneos y no se admiten IDs activos repetidos.
+- PHP se ejecuta con paths canónicos, argv fijo, entorno vacío, FDs mínimos,
+  umask 077, core dumps deshabilitados y `no_new_privs`; stderr va a un sumidero
+  acotado para que un error no filtre rutas, secretos o contenido al editor.
+- El material de clave se limpia de la memoria del bridge al transferirse y al
+  destruir el canal. Los mensajes externos de error son estables y redactados.
+
+Estos controles reducen la superficie, pero no equivalen a una certificación.
+La caída del servicio PHP cierra la sesión completa y propaga su código de salida;
+no se intenta reconstruir silenciosamente documentos ni requests parciales. El
+cliente puede iniciar un bridge nuevo desde cero. Quedan pendientes timeout y
+cancelación completa, sandbox sin red, fuzzing prolongado y revisión independiente.

@@ -426,7 +426,9 @@ ni incorporarán el bridge como dependencia del núcleo.
 - Rename devuelve exclusivamente cambios versionados y renombres de URI; nunca escribe. `LanguageStdioServer` reserva stdout para frames y la clave SALK entra por descriptor heredado, no argv ni entorno secreto.
 - Pruebas cubren pre-initialize, initialize, documentos, hover, definición, referencias, prepare/rename, diagnóstico inválido, versión stale, shutdown/exit, replay, expiración y stdio: `JAS LANGUAGE BINARY SERVICE: PASS`.
 - L3 ya dispone de bridge C++ externo compilable: framing `Content-Length`, parser RapidJSON, allowlist de métodos, traducción JASL/JASB firmada, clave efímera por descriptor, `execl` sin shell y lectura asíncrona de PHP.
-- El lifecycle JSON-RPC `initialize` → `initialized` → `shutdown` → `exit` pasa de extremo a extremo con `make -C sdk/cpp/lsp test`. L3 sigue abierta hasta añadir timeout, stderr acotado y pruebas adversariales de framing/caída.
+- El lifecycle JSON-RPC `initialize` → `initialized` → `shutdown` → `exit` pasa de extremo a extremo con `make -C sdk/cpp/lsp test`. La muerte de PHP hace fallar todo el bridge sin conservar estado parcial; L3 sigue abierta hasta añadir timeout interno.
+- El primer hardening del bridge usa comparación constante, valida UTF-8/timestamp/opcode/sesión, rechaza claves duplicadas y limita profundidad, elementos y 256 requests activos con IDs únicos. El hijo recibe entorno vacío, FDs mínimos, umask 077, `no_new_privs`, cero core dumps y stderr sin salida.
+- La prueba de frontera rechaza método ejecutable, framing byte a byte, Content-Length excesivo, ruta inválida y ambigüedad de claves sin ejecutar comandos ni filtrar secretos. ASan/UBSan pasa en el entorno disponible con detección de fugas deshabilitada porque LeakSanitizer no funciona bajo el aislamiento del runner.
 
 No se iniciará la Fase 9 hasta cerrar esta puerta y registrar evidencia.
 
@@ -494,7 +496,7 @@ cambio futuro de estado debe actualizar simultáneamente la fase y esta tabla.
 | 6 | Completada | JAS Web: `php tests/test_jas_web.php`, `php tests/test_jas_accessibility.php` y `php tests/test_jas_upload.php` |
 | 7 | Completada | Tooling y ciclo de proyecto: `php tests/test_jas_tooling.php`, `php tests/test_jas_language_engine.php`, `php tests/test_jas_project_lifecycle.php` y `php bin/jas static` |
 | 8 | Completada | Operación segura y calificación acelerada: `php tests/test_jas_operations_qualification.php 500`; 10,500/10,500 operaciones, integridad PASS; gate transversal: `php tests/run_all.php` |
-| 8.5 | En progreso | L0–L2 completas; L3 bridge C++ operativo con lifecycle estándar, endurecimiento pendiente: `make -C sdk/cpp/lsp test` |
+| 8.5 | En progreso | L0–L2 completas; L3 bridge C++ operativo y frontera negativa PASS; timeout interno pendiente: `make -C sdk/cpp/lsp test` |
 | 9 | Pendiente | No iniciada |
 | 10 | Pendiente | No iniciada |
 
@@ -503,8 +505,8 @@ registrado es `JAS SUITE: PASS`.
 
 ## Próxima acción obligatoria
 
-Terminar el endurecimiento L3 del bridge C++: timeout, stderr acotado y pruebas
-adversariales; después verificar todas las capacidades L4 desde el protocolo
+Terminar el endurecimiento L3 del bridge C++ con timeout interno; después
+verificar todas las capacidades L4 desde el protocolo
 LSP. No iniciar la Fase 9 antes de cerrar el plan.
 
 ## Resumen de trabajo restante

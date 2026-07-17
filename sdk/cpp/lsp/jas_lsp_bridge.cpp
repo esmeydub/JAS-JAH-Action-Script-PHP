@@ -3,13 +3,21 @@
 #include <rapidjson/writer.h>
 
 #include <openssl/core_names.h>
+#include <openssl/crypto.h>
 #include <openssl/evp.h>
 #include <openssl/params.h>
 #include <openssl/rand.h>
 
 #include <sys/types.h>
+#include <sys/resource.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <limits.h>
+#ifdef __linux__
+#include <sys/prctl.h>
+#endif
 
 #include <algorithm>
 #include <array>
@@ -22,6 +30,7 @@
 #include <map>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -33,6 +42,8 @@ namespace {
 constexpr std::size_t MAX_LSP_BYTES = 8u * 1024u * 1024u;
 constexpr std::size_t MAX_DEPTH = 16;
 constexpr std::size_t MAX_ITEMS = 4096;
+constexpr std::size_t MAX_JSON_ITEMS = 65536;
+constexpr std::size_t MAX_PENDING_REQUESTS = 256;
 constexpr std::uint16_t OP_INITIALIZE = 600, OP_INITIALIZED = 601;
 constexpr std::uint16_t OP_OPEN = 610, OP_CHANGE = 611, OP_CLOSE = 612;
 constexpr std::uint16_t OP_HOVER = 620, OP_DEFINITION = 621, OP_REFERENCES = 622;
@@ -54,6 +65,35 @@ struct Value {
     Value(List value) : data(std::move(value)) {}
     Value(Map value) : data(std::move(value)) {}
 };
+
+bool validUtf8(const std::string& value) {
+    const auto* bytes = reinterpret_cast<const unsigned char*>(value.data());
+    std::size_t at = 0;
+    while (at < value.size()) {
+        const auto first = bytes[at++];
+        if (first <= 0x7f) continue;
+        std::size_t remaining = 0; std::uint32_t point = 0;
+        if (first >= 0xc2 && first <= 0xdf) { remaining = 1; point = first & 0x1f; }
+        else if (first >= 0xe0 && first <= 0xef) { remaining = 2; point = first & 0x0f; }
+        else if (first >= 0xf0 && first <= 0xf4) { remaining = 3; point = first & 0x07; }
+        else return false;
+        if (at + remaining > value.size()) return false;
+        for (std::size_t i = 0; i < remaining; ++i) {
+            const auto next = bytes[at++]; if ((next & 0xc0) != 0x80) return false;
+            point = (point << 6) | (next & 0x3f);
+        }
+        if ((remaining == 2 && point < 0x800) || (remaining == 3 && point < 0x10000)
+            || (point >= 0xd800 && point <= 0xdfff) || point > 0x10ffff) return false;
+    }
+    return true;
+}
+
+bool validKey(const std::string& key) {
+    if (key.empty() || key.size() > 64 || !std::isalpha(static_cast<unsigned char>(key[0]))) return false;
+    return std::all_of(key.begin() + 1, key.end(), [](unsigned char c) {
+        return std::isalnum(c) || c == '_' || c == '.' || c == ':' || c == '-';
+    });
+}
 
 void appendU16(std::vector<std::uint8_t>& out, std::uint16_t value) {
     out.push_back(static_cast<std::uint8_t>(value >> 8)); out.push_back(static_cast<std::uint8_t>(value));
@@ -79,6 +119,7 @@ void encodeValue(std::vector<std::uint8_t>& out, const Value& value, std::size_t
     else if (const auto* item = std::get_if<bool>(&value.data)) type = *item ? 2 : 1;
     else if (const auto* item = std::get_if<std::int32_t>(&value.data)) { type = 3; appendU32(body, static_cast<std::uint32_t>(*item)); }
     else if (const auto* item = std::get_if<std::string>(&value.data)) {
+        if (item->size() > 4u * 1024u * 1024u || !validUtf8(*item)) throw std::runtime_error("payload_string");
         type = 4; body.insert(body.end(), item->begin(), item->end());
     } else if (const auto* items = std::get_if<List>(&value.data)) {
         if (items->size() > MAX_ITEMS) throw std::runtime_error("payload_items");
@@ -89,7 +130,7 @@ void encodeValue(std::vector<std::uint8_t>& out, const Value& value, std::size_t
         if (mapItems.size() > MAX_ITEMS) throw std::runtime_error("payload_items");
         type = 6; appendU16(body, static_cast<std::uint16_t>(mapItems.size()));
         for (const auto& [key, item] : mapItems) {
-            if (key.empty() || key.size() > 64) throw std::runtime_error("payload_key");
+            if (!validKey(key)) throw std::runtime_error("payload_key");
             body.push_back(static_cast<std::uint8_t>(key.size())); body.insert(body.end(), key.begin(), key.end());
             encodeValue(body, item, depth + 1);
         }
@@ -103,7 +144,9 @@ Value decodeValue(const std::vector<std::uint8_t>& in, std::size_t& at, std::siz
     const std::size_t end = at + length; if (end < at || end > in.size()) throw std::runtime_error("payload_truncated");
     if (type <= 2) { if (length != 0) throw std::runtime_error("payload_scalar"); return type == 0 ? Value(nullptr) : Value(type == 2); }
     if (type == 3) { if (length != 4) throw std::runtime_error("payload_integer"); auto n = readU32(in, at); at = end; return Value(static_cast<std::int32_t>(n)); }
-    if (type == 4) { std::string text(reinterpret_cast<const char*>(in.data() + at), length); at = end; return Value(std::move(text)); }
+    if (type == 4) { std::string text(reinterpret_cast<const char*>(in.data() + at), length); at = end;
+        if (text.size() > 4u * 1024u * 1024u || !validUtf8(text)) throw std::runtime_error("payload_string");
+        return Value(std::move(text)); }
     if ((type != 5 && type != 6) || length < 2) throw std::runtime_error("payload_type");
     const auto count = readU16(in, at); at += 2; if (count > MAX_ITEMS) throw std::runtime_error("payload_items");
     if (type == 5) {
@@ -117,6 +160,7 @@ Value decodeValue(const std::vector<std::uint8_t>& in, std::size_t& at, std::siz
         const auto n = in[at++];
         if (n == 0 || at + n > end) throw std::runtime_error("payload_key");
         std::string key(reinterpret_cast<const char*>(in.data() + at), n); at += n;
+        if (!validKey(key)) throw std::runtime_error("payload_key");
         if (!map.emplace(std::move(key), decodeValue(in, at, depth + 1)).second) throw std::runtime_error("payload_key");
     }
     if (at != end) throw std::runtime_error("payload_container");
@@ -167,6 +211,7 @@ class JasChannel {
     int input_, output_; std::array<std::uint8_t,32> key_; std::string session_; std::atomic<std::uint64_t> sequence_{0};
 public:
     JasChannel(int input, int output, std::array<std::uint8_t,32> key, std::string session) : input_(input), output_(output), key_(key), session_(std::move(session)) {}
+    ~JasChannel() { OPENSSL_cleanse(key_.data(), key_.size()); }
     void send(std::uint16_t opcode, const Map& payload) {
         const auto encoded = encodePayload(payload); const auto sequence = ++sequence_;
         std::vector<std::uint8_t> seed(session_.begin(), session_.end()); for (int shift = 56; shift >= 0; shift -= 8) seed.push_back(static_cast<std::uint8_t>(sequence >> shift));
@@ -191,11 +236,17 @@ public:
         const std::size_t bodyLength = 36u + requestLength + sessionLength + payloadLength;
         if (bodyLength + 32 != bytes.size()) throw std::runtime_error("packet_length");
         std::vector<std::uint8_t> body(bytes.begin(), bytes.begin() + static_cast<std::ptrdiff_t>(bodyLength)); const auto expected = hmac(key_, body);
-        if (!std::equal(expected.begin(), expected.end(), bytes.begin() + static_cast<std::ptrdiff_t>(bodyLength))) throw std::runtime_error("packet_signature");
+        if (CRYPTO_memcmp(expected.data(), bytes.data() + bodyLength, expected.size()) != 0) throw std::runtime_error("packet_signature");
         Packet packet; packet.opcode = readU16(bytes, 6); std::size_t at = 36;
         packet.request.assign(reinterpret_cast<const char*>(bytes.data()+at), requestLength); at += requestLength;
         packet.session.assign(reinterpret_cast<const char*>(bytes.data()+at), sessionLength); at += sessionLength;
-        if (packet.session != session_) throw std::runtime_error("packet_session");
+        const auto timestamp = readU32(bytes, 10); const auto now = static_cast<std::uint32_t>(std::time(nullptr));
+        if (bytes[5] != 0 || readU16(bytes, 8) != 0 || requestLength == 0 || sessionLength == 0
+            || (timestamp > now ? timestamp - now : now - timestamp) > 60
+            || (packet.opcode != OP_RESPONSE && packet.opcode != OP_ERROR && packet.opcode != OP_DIAGNOSTICS)
+            || packet.session.size() != session_.size() || CRYPTO_memcmp(packet.session.data(), session_.data(), session_.size()) != 0) {
+            throw std::runtime_error("packet_contract");
+        }
         packet.payload.assign(bytes.begin()+static_cast<std::ptrdiff_t>(at), bytes.begin()+static_cast<std::ptrdiff_t>(at+payloadLength));
         return packet;
     }
@@ -246,6 +297,23 @@ std::optional<std::string> readLspMessage() {
     std::string body(*length,'\0'); std::cin.read(body.data(),static_cast<std::streamsize>(*length)); if (static_cast<std::size_t>(std::cin.gcount())!=*length) throw std::runtime_error("body_truncated"); return body;
 }
 
+void validateJson(const rapidjson::Value& value, std::size_t depth, std::size_t& items) {
+    if (depth > MAX_DEPTH || ++items > MAX_JSON_ITEMS) throw std::runtime_error("json_limits");
+    if (value.IsString() && value.GetStringLength() > 4u * 1024u * 1024u) throw std::runtime_error("json_string");
+    if (value.IsArray()) {
+        if (value.Size() > MAX_ITEMS) throw std::runtime_error("json_items");
+        for (const auto& child : value.GetArray()) validateJson(child, depth + 1, items);
+    } else if (value.IsObject()) {
+        if (value.MemberCount() > MAX_ITEMS) throw std::runtime_error("json_items");
+        std::set<std::string> names;
+        for (auto it = value.MemberBegin(); it != value.MemberEnd(); ++it) {
+            std::string name(it->name.GetString(), it->name.GetStringLength());
+            if (!names.insert(name).second) throw std::runtime_error("json_duplicate_key");
+            validateJson(it->value, depth + 1, items);
+        }
+    }
+}
+
 Value idValue(const rapidjson::Value& id) {
     if (id.IsInt() && id.GetInt() >= 0) return Value(id.GetInt());
     if (id.IsString() && id.GetStringLength() && id.GetStringLength() <= 128) return Value(std::string(id.GetString(),id.GetStringLength()));
@@ -258,10 +326,13 @@ std::uint16_t opcodeFor(const std::string& method) {
 std::string kindFor(const std::string& method) { return method=="initialized" || method=="textDocument/didOpen" || method=="textDocument/didChange" || method=="textDocument/didClose" || method=="exit" ? "notification" : "request"; }
 
 class Translator {
-    std::mutex mutex_; std::map<std::string,std::int32_t> versions_; std::string encoding_="utf-16"; std::string workspace_;
+    std::mutex mutex_; std::map<std::string,std::int32_t> versions_; std::set<std::string> pending_; std::string encoding_="utf-16"; std::string workspace_;
     static const rapidjson::Value& required(const rapidjson::Value& object,const char* name){if(!object.IsObject()||!object.HasMember(name))throw std::runtime_error("params_invalid");return object[name];}
     static std::string string(const rapidjson::Value& value){if(!value.IsString())throw std::runtime_error("params_invalid");return {value.GetString(),value.GetStringLength()};}
     std::int32_t version(const std::string& uri){std::lock_guard lock(mutex_);auto it=versions_.find(uri);return it==versions_.end()?0:it->second;}
+    static std::string idKey(const Value& value) {if(const auto* id=std::get_if<std::int32_t>(&value.data))return "i:"+std::to_string(*id);if(const auto* id=std::get_if<std::string>(&value.data))return "s:"+*id;throw std::runtime_error("id_invalid");}
+    void registerRequest(const Value& id){std::lock_guard lock(mutex_);if(pending_.size()>=MAX_PENDING_REQUESTS||!pending_.insert(idKey(id)).second)throw std::runtime_error("request_backpressure");}
+    void completeRequest(const Value& id){std::lock_guard lock(mutex_);if(pending_.erase(idKey(id))!=1)throw std::runtime_error("response_unmatched");}
 public:
     std::pair<std::uint16_t,Map> inbound(const rapidjson::Document& doc) {
         if(!doc.IsObject()||!doc.HasMember("jsonrpc")||!doc["jsonrpc"].IsString()||std::string_view(doc["jsonrpc"].GetString(),doc["jsonrpc"].GetStringLength())!="2.0"||!doc.HasMember("method")||!doc["method"].IsString())throw std::runtime_error("request_invalid");
@@ -282,18 +353,19 @@ public:
             if(params.HasMember("processId")&&!params["processId"].IsNull()){if(!params["processId"].IsInt()||params["processId"].GetInt()<0)throw std::runtime_error("pid_invalid");pid=params["processId"].GetInt();}
             body={{"workspace_uri",workspace},{"process_id",pid},{"position_encodings",encodings}};
         } else if(method=="textDocument/didOpen") {
-            const auto& text=required(params,"textDocument"); auto uri=string(required(text,"uri")); auto v=required(text,"version").GetInt(); {std::lock_guard lock(mutex_);versions_[uri]=v;}
+            const auto& text=required(params,"textDocument"); auto uri=string(required(text,"uri")); const auto& versionValue=required(text,"version");if(!versionValue.IsInt()||versionValue.GetInt()<0)throw std::runtime_error("version_invalid");auto v=versionValue.GetInt(); {std::lock_guard lock(mutex_);versions_[uri]=v;}
             body={{"uri",uri},{"version",v},{"language_id",string(required(text,"languageId"))},{"content",string(required(text,"text"))}};
         } else if(method=="textDocument/didChange") {
-            const auto& text=required(params,"textDocument"); auto uri=string(required(text,"uri")); if(!required(text,"version").IsInt())throw std::runtime_error("version_invalid");auto v=required(text,"version").GetInt();
+            const auto& text=required(params,"textDocument"); auto uri=string(required(text,"uri")); if(!required(text,"version").IsInt()||required(text,"version").GetInt()<0)throw std::runtime_error("version_invalid");auto v=required(text,"version").GetInt();
             const auto& changes=required(params,"contentChanges");if(!changes.IsArray()||changes.Size()!=1||!changes[0].IsObject()||!changes[0].HasMember("text")||changes[0].HasMember("range"))throw std::runtime_error("full_sync_required");{std::lock_guard lock(mutex_);versions_[uri]=v;}
             body={{"uri",uri},{"version",v},{"changes",List{Map{{"text",string(changes[0]["text"])}}}}};
         } else if(method=="textDocument/didClose") {auto uri=string(required(required(params,"textDocument"),"uri"));{std::lock_guard lock(mutex_);versions_.erase(uri);}body={{"uri",uri}};}
         else if(method=="textDocument/hover"||method=="textDocument/definition"||method=="textDocument/references"||method=="textDocument/prepareRename"||method=="textDocument/rename") {
-            auto uri=string(required(required(params,"textDocument"),"uri"));const auto& pos=required(params,"position");if(!required(pos,"line").IsInt()||!required(pos,"character").IsInt())throw std::runtime_error("position_invalid");
+            auto uri=string(required(required(params,"textDocument"),"uri"));const auto& pos=required(params,"position");if(!required(pos,"line").IsInt()||required(pos,"line").GetInt()<0||!required(pos,"character").IsInt()||required(pos,"character").GetInt()<0)throw std::runtime_error("position_invalid");
             body={{"uri",uri},{"version",version(uri)},{"line",required(pos,"line").GetInt()},{"character",required(pos,"character").GetInt()},{"position_encoding",encoding_}};if(method=="textDocument/rename")body["new_name"]=string(required(params,"newName"));
         }
-        Map message{{"schema","JAS_LANGUAGE_1"},{"kind",kind},{"method",method},{"external_id",kind=="request"?idValue(doc["id"]):Value(nullptr)},{"body",body}}; return {opcodeFor(method),std::move(message)};
+        Value external=kind=="request"?idValue(doc["id"]):Value(nullptr);if(kind=="request")registerRequest(external);
+        Map message{{"schema","JAS_LANGUAGE_1"},{"kind",kind},{"method",method},{"external_id",external},{"body",body}}; return {opcodeFor(method),std::move(message)};
     }
     void outbound(const Packet& packet,LspWriter& writer) {
         const auto envelope=decodePayload(packet.payload);const auto kind=asString(field(envelope,"kind"));const auto method=asString(field(envelope,"method"));
@@ -312,6 +384,7 @@ public:
                     diagnostic.AddMember("severity",asInt(field(source,"severity")),a);const auto& code=asString(field(source,"code"));const auto& message=asString(field(source,"message"));diagnostic.AddMember("code",rapidjson::Value(code.data(),static_cast<rapidjson::SizeType>(code.size()),a),a);diagnostic.AddMember("source","jas",a);diagnostic.AddMember("message",rapidjson::Value(message.data(),static_cast<rapidjson::SizeType>(message.size()),a),a);diagnostics.PushBack(diagnostic,a);}
                 params.AddMember("diagnostics",diagnostics,a);
             } else params.SetObject();out.AddMember("params",params,a);writer.write(out);return;}
+        completeRequest(field(envelope,"external_id"));
         rapidjson::Value id;toJson(field(envelope,"external_id"),id,a);out.AddMember("id",id,a);
         if(kind=="error"||packet.opcode==OP_ERROR){rapidjson::Value error(rapidjson::kObjectType);error.AddMember("code",asInt(field(body,"code")),a);const auto& msg=asString(field(body,"message"));error.AddMember("message",rapidjson::Value(msg.data(),static_cast<rapidjson::SizeType>(msg.size()),a),a);out.AddMember("error",error,a);writer.write(out);return;}
         rapidjson::Value result;
@@ -327,17 +400,57 @@ public:
     }
 };
 
-struct Child { pid_t pid; int input; int output; };
-Child spawnPhp(const std::string& php,const std::string& jas,const std::string& workspace,const std::array<std::uint8_t,32>& key){int toChild[2],fromChild[2],keyPipe[2];if(pipe(toChild)||pipe(fromChild)||pipe(keyPipe))throw std::runtime_error("pipe_failed");pid_t pid=fork();if(pid<0)throw std::runtime_error("fork_failed");if(pid==0){dup2(toChild[0],STDIN_FILENO);dup2(fromChild[1],STDOUT_FILENO);close(toChild[1]);close(fromChild[0]);close(keyPipe[1]);close(toChild[0]);close(fromChild[1]);const std::string fd=std::to_string(keyPipe[0]);setenv("JAS_LANGUAGE_KEY_FD",fd.c_str(),1);execl(php.c_str(),php.c_str(),jas.c_str(),"language:serve","--stdio",workspace.c_str(),static_cast<char*>(nullptr));_exit(127);}close(toChild[0]);close(fromChild[1]);close(keyPipe[0]);writeExact(keyPipe[1],key.data(),key.size());close(keyPipe[1]);return{pid,fromChild[0],toChild[1]};}
+std::string canonicalPath(const char* raw, bool directory, bool executable) {
+    char resolved[PATH_MAX];
+    if (!raw || !*raw || !realpath(raw, resolved)) throw std::runtime_error("startup_path_invalid");
+    struct stat info{}; if (stat(resolved, &info) != 0) throw std::runtime_error("startup_path_invalid");
+    if ((directory && !S_ISDIR(info.st_mode)) || (!directory && !S_ISREG(info.st_mode))
+        || access(resolved, executable ? X_OK : R_OK) != 0) throw std::runtime_error("startup_path_invalid");
+    return resolved;
+}
+
+void restrictChild(int keyDescriptor) {
+    umask(077);
+#ifdef __linux__
+    if (prctl(PR_SET_DUMPABLE, 0) != 0 || prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0) _exit(126);
+#endif
+    struct rlimit coreLimit{0, 0}; if (setrlimit(RLIMIT_CORE, &coreLimit) != 0) _exit(126);
+    long maximum = sysconf(_SC_OPEN_MAX); if (maximum < 0 || maximum > 65536) maximum = 65536;
+    for (int descriptor = 3; descriptor < maximum; ++descriptor) if (descriptor != keyDescriptor) close(descriptor);
+    struct rlimit fileLimit{64, 64}; if (setrlimit(RLIMIT_NOFILE, &fileLimit) != 0) _exit(126);
+}
+
+struct Child { pid_t pid{}; int input{-1}; int output{-1}; };
+Child spawnPhp(const std::string& php,const std::string& jas,const std::string& workspace,const std::array<std::uint8_t,32>& key) {
+    int toChild[2],fromChild[2],keyPipe[2];
+    if(pipe(toChild)||pipe(fromChild)||pipe(keyPipe))throw std::runtime_error("pipe_failed");
+    const int nullDescriptor = open("/dev/null", O_WRONLY | O_CLOEXEC); if (nullDescriptor < 0) throw std::runtime_error("stderr_guard_failed");
+    pid_t pid=fork();if(pid<0)throw std::runtime_error("fork_failed");
+    if(pid==0) {
+        if (dup2(toChild[0],STDIN_FILENO) < 0 || dup2(fromChild[1],STDOUT_FILENO) < 0
+            || dup2(nullDescriptor,STDERR_FILENO) < 0 || chdir(workspace.c_str()) != 0) _exit(126);
+        close(toChild[1]);close(fromChild[0]);close(keyPipe[1]);close(toChild[0]);close(fromChild[1]);close(nullDescriptor);
+        if (clearenv() != 0) _exit(126);
+        const std::string fd=std::to_string(keyPipe[0]);
+        if (setenv("JAS_LANGUAGE_KEY_FD",fd.c_str(),1) != 0 || setenv("LANG","C.UTF-8",1) != 0) _exit(126);
+        restrictChild(keyPipe[0]);
+        execl(php.c_str(),php.c_str(),jas.c_str(),"language:serve","--stdio",workspace.c_str(),static_cast<char*>(nullptr));_exit(127);
+    }
+    close(nullDescriptor);close(toChild[0]);close(fromChild[1]);close(keyPipe[0]);
+    try { writeExact(keyPipe[1],key.data(),key.size()); } catch (...) { close(keyPipe[1]); close(toChild[1]); close(fromChild[0]); kill(pid,SIGKILL); waitpid(pid,nullptr,0); throw; }
+    close(keyPipe[1]);return{pid,fromChild[0],toChild[1]};
+}
 
 } // namespace
 
 int main(int argc,char** argv){
     if(argc!=4){std::cerr<<"usage: jas-lsp-bridge <php-binary> <jas-cli> <workspace>\n";return 2;}
+    signal(SIGPIPE, SIG_IGN);
+    std::string php,jas,workspace;try{php=canonicalPath(argv[1],false,true);jas=canonicalPath(argv[2],false,false);workspace=canonicalPath(argv[3],true,false);}catch(...){std::cerr<<"JAS LSP bridge rejected startup paths\n";return 2;}
     std::array<std::uint8_t,32> key{},sessionBytes{};if(RAND_bytes(key.data(),key.size())!=1||RAND_bytes(sessionBytes.data(),16)!=1){std::cerr<<"JAS LSP bridge could not initialize\n";return 2;}
-    Child child{};std::atomic<bool> running{true};try{child=spawnPhp(argv[1],argv[2],argv[3],key);JasChannel channel(child.input,child.output,key,hex(sessionBytes.data(),16));Translator translator;LspWriter writer;
+    Child child{};std::atomic<bool> running{true};try{child=spawnPhp(php,jas,workspace,key);JasChannel channel(child.input,child.output,key,hex(sessionBytes.data(),16));OPENSSL_cleanse(key.data(),key.size());OPENSSL_cleanse(sessionBytes.data(),sessionBytes.size());Translator translator;LspWriter writer;bool framingFailure=false;
         std::thread reader([&]{try{while(running)translator.outbound(channel.receive(),writer);}catch(...){running=false;}});
-        while(running){auto body=readLspMessage();if(!body)break;rapidjson::Document doc;doc.Parse<rapidjson::kParseValidateEncodingFlag|rapidjson::kParseStopWhenDoneFlag>(body->data(),body->size());if(doc.HasParseError()){writer.error(nullptr,-32700,"Parse error");continue;}try{auto [opcode,message]=translator.inbound(doc);channel.send(opcode,message);if(opcode==OP_EXIT)break;}catch(const std::exception&){const rapidjson::Value* id=doc.IsObject()&&doc.HasMember("id")?&doc["id"]:nullptr;if(id)writer.error(id,-32602,"Invalid or unsupported language request");}}
-        close(child.output);if(reader.joinable())reader.join();close(child.input);int status=0;waitpid(child.pid,&status,0);return WIFEXITED(status)?WEXITSTATUS(status):1;
-    }catch(const std::exception&){running=false;if(child.output>0)close(child.output);if(child.input>0)close(child.input);if(child.pid>0){kill(child.pid,SIGTERM);waitpid(child.pid,nullptr,0);}std::cerr<<"JAS LSP bridge stopped safely\n";return 1;}
+        while(running){std::optional<std::string> body;try{body=readLspMessage();}catch(...){framingFailure=true;break;}if(!body)break;rapidjson::Document doc;doc.Parse<rapidjson::kParseValidateEncodingFlag|rapidjson::kParseStopWhenDoneFlag|rapidjson::kParseIterativeFlag>(body->data(),body->size());if(doc.HasParseError()){try{writer.error(nullptr,-32700,"Parse error");}catch(...){break;}continue;}try{std::size_t jsonItems=0;validateJson(doc,0,jsonItems);auto [opcode,message]=translator.inbound(doc);channel.send(opcode,message);if(opcode==OP_EXIT)break;}catch(const std::exception&){const rapidjson::Value* id=doc.IsObject()&&doc.HasMember("id")?&doc["id"]:nullptr;if(id){try{writer.error(id,-32602,"Invalid or unsupported language request");}catch(...){break;}}}}
+        close(child.output);if(reader.joinable())reader.join();close(child.input);int status=0;waitpid(child.pid,&status,0);if(framingFailure){std::cerr<<"JAS LSP bridge rejected malformed framing\n";return 1;}return WIFEXITED(status)?WEXITSTATUS(status):1;
+    }catch(const std::exception&){running=false;OPENSSL_cleanse(key.data(),key.size());OPENSSL_cleanse(sessionBytes.data(),sessionBytes.size());if(child.output>=0)close(child.output);if(child.input>=0)close(child.input);if(child.pid>0){kill(child.pid,SIGTERM);waitpid(child.pid,nullptr,0);}std::cerr<<"JAS LSP bridge stopped safely\n";return 1;}
 }
