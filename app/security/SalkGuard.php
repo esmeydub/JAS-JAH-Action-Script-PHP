@@ -254,6 +254,7 @@ final class SalkGuard
         $publicExposure = [];
 
         $suffix = chr(106) . chr(115) . chr(111) . chr(110);
+        $scriptExtensions = ['js', 'jsx', 'ts', 'tsx'];
         $nodeArtifacts = [
             'package.' . $suffix,
             'package-lock.' . $suffix,
@@ -277,23 +278,26 @@ final class SalkGuard
             }
         }
 
-        foreach (['composer.' . $suffix, 'composer.lock'] as $artifact) {
-            $path = $this->root . DIRECTORY_SEPARATOR . $artifact;
-            if (is_file($path)) {
-                $files[$artifact] = $this->relativePath($path);
-                if ($artifact !== 'composer.lock') {
-                    $content = @file_get_contents($path);
-                    if (is_string($content)) {
-                        $this->collectDangerousTextFindings($artifact, $content, $dangerousScripts);
-                    }
-                }
-            }
+        if (is_dir($this->root . '/vendor')) {
+            $files['vendor'] = 'vendor';
+            $errors[] = 'vendor detectado; el núcleo JAS no admite dependencias instaladas por Composer';
+        }
 
-            $publicArtifact = $this->root . '/public/' . $artifact;
-            if (is_file($publicArtifact)) {
-                $publicExposure[] = $artifact;
-                $errors[] = "{$artifact} no debe estar expuesto dentro de public/";
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveCallbackFilterIterator(
+            new \RecursiveDirectoryIterator($this->root, \FilesystemIterator::SKIP_DOTS),
+            static function (\SplFileInfo $entry): bool {
+                return !$entry->isDir() || !in_array($entry->getFilename(), ['.git', 'runtime', 'vendor'], true);
             }
+        ));
+        foreach ($iterator as $entry) {
+            if (!$entry instanceof \SplFileInfo || !$entry->isFile()) continue;
+            $extension = strtolower($entry->getExtension());
+            if ($extension !== $suffix && !in_array($extension, $scriptExtensions, true)) continue;
+            $relative = $this->relativePath($entry->getPathname());
+            $files[$relative] = $relative;
+            $errors[] = $extension === $suffix
+                ? "{$relative} detectado; JAS prohíbe archivos JSON"
+                : "{$relative} detectado; JAS prohíbe código JavaScript o TypeScript";
         }
 
         if ($dangerousScripts !== []) {
@@ -304,6 +308,8 @@ final class SalkGuard
             'ok' => $errors === [],
             'mode' => 'php_puro_actionscript_php',
             'jas_native_formats_only' => true,
+            'json_detected' => array_reduce(array_keys($files), static fn(bool $found, string $file): bool => $found || str_ends_with(strtolower($file), '.' . $suffix), false),
+            'script_detected' => array_reduce(array_keys($files), static fn(bool $found, string $file): bool => $found || in_array(strtolower(pathinfo($file, PATHINFO_EXTENSION)), $scriptExtensions, true), false),
             'node_detected' => isset($files['node_modules']),
             'files' => $files,
             'public_exposure' => $publicExposure,

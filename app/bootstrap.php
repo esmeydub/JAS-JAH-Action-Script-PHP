@@ -20,20 +20,15 @@ if (is_file($envFile)) {
     }
 }
 
-$composerAutoload = $root . '/vendor/autoload.php';
-if (is_file($composerAutoload)) {
-    require_once $composerAutoload;
-} else {
-    require_once __DIR__ . '/core/Autoloader.php';
-    Autoloader::register();
-    Autoloader::addNamespace('Jah\\Core\\', __DIR__ . '/core');
-    Autoloader::addNamespace('Jah\\Memory\\', __DIR__ . '/memory');
-    Autoloader::addNamespace('Jah\\Cache\\', __DIR__ . '/cache');
-    Autoloader::addNamespace('Jah\\Security\\', __DIR__ . '/security');
-    Autoloader::addNamespace('Jah\\Http\\', __DIR__ . '/http');
-    Autoloader::addNamespace('Jah\\DataCore\\', $root . '/src/DataCore');
-    Autoloader::addNamespace('Jah\\JAS\\', $root . '/src/JAS');
-}
+require_once __DIR__ . '/core/Autoloader.php';
+Autoloader::register();
+Autoloader::addNamespace('Jah\\Core\\', __DIR__ . '/core');
+Autoloader::addNamespace('Jah\\Memory\\', __DIR__ . '/memory');
+Autoloader::addNamespace('Jah\\Cache\\', __DIR__ . '/cache');
+Autoloader::addNamespace('Jah\\Security\\', __DIR__ . '/security');
+Autoloader::addNamespace('Jah\\Http\\', __DIR__ . '/http');
+Autoloader::addNamespace('Jah\\DataCore\\', $root . '/src/DataCore');
+Autoloader::addNamespace('Jah\\JAS\\', $root . '/src/JAS');
 
 $config = require __DIR__ . '/config/config.php';
 

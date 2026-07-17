@@ -52,6 +52,7 @@ final class DualControlStore
         return $this->locked(function () use ($approvalId, $action, $requestId, $payloadFingerprint): array {
             $state = $this->stateUnlocked()[$approvalId] ?? throw new RuntimeException('dual_control_not_found');
             if (($state['status'] ?? '') !== 'approved') throw new RuntimeException('dual_control_not_approved');
+            if ((int) ($state['expires_at'] ?? 0) < time()) throw new RuntimeException('dual_control_expired');
             $sameContext = ($state['action'] ?? null) === $action
                 && ($state['request_id'] ?? null) === $requestId
                 && hash_equals((string) $state['payload_fingerprint'], $payloadFingerprint);

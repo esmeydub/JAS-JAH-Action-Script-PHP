@@ -1,5 +1,12 @@
 # Estado de las API de JAS 2.0
 
+## Límite del núcleo
+
+La API oficial del motor es PHP puro. Tipos, rutinas, definiciones y persistencia
+se implementan dentro de PHP. JavaScript, Node y otros runtimes no forman parte
+del núcleo. Cualquier lenguaje externo usa un adaptador fuera de proceso y JASB,
+como los SDK C/C++, sin acceso directo a DataCore ni a internals del runtime.
+
 Este inventario es normativo durante la consolidación. Una API estable conserva
 compatibilidad dentro de la versión mayor; una experimental puede cambiar con
 nota de migración; una heredada no puede usarse en código nuevo.

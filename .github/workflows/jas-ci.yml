@@ -27,13 +27,16 @@ jobs:
           php-version: ${{ matrix.php }}
           extensions: sodium, pcntl
           coverage: none
-          tools: composer
 
-      - name: Install locked development dependencies
-        run: composer install --no-interaction --no-progress --prefer-dist
+      - name: Install verified PHPStan PHAR
+        run: |
+          curl --fail --silent --show-error --location \
+            https://github.com/phpstan/phpstan/releases/download/2.1.56/phpstan.phar \
+            --output /tmp/phpstan.phar
+          echo "d9d42305ea80cd33cd4c3fb2699b5a3a563d9cf65b4320107071facf4201a294  /tmp/phpstan.phar" | sha256sum --check --strict
 
       - name: Static analysis
-        run: php bin/jas static
+        run: JAS_PHPSTAN=/tmp/phpstan.phar php bin/jas static
 
       - name: Test suite
         run: php tests/run_all.php

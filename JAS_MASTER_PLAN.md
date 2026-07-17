@@ -4,18 +4,35 @@ Estado: **activo y normativo**
 Producto: **JAS — JAH Action Script PHP**
 Objetivo: capa organizada, tipada y segura sobre PHP para aplicaciones web empresariales y gubernamentales sostenibles, con DataCore como base de datos nativa.
 
+## Principio arquitectónico inmutable
+
+El núcleo de JAS es 100% PHP puro. El sistema de tipos, las definiciones, las
+rutinas, el runtime, DataCore y las herramientas oficiales forman un lenguaje
+organizado dentro de PHP y no incorporan código JavaScript ni runtimes externos.
+
+Otros lenguajes sólo pueden integrarse fuera del motor mediante adaptadores y el
+protocolo binario JASB, siguiendo el mismo límite usado por los SDK C/C++. Una
+integración externa nunca puede ejecutar código dentro del núcleo ni evitar
+tipos, contratos, autorización, auditoría o la gobernanza de DataCore.
+
+SALK aplica este límite como gate verificable y la suite registra
+`JAS PURE PHP: PASS`; introducir un archivo JSON o JavaScript hace fallar la
+comprobación del paquete.
+
 ## Reglas de ejecución
 
 1. Las fases se realizan en orden. No se inicia una fase mientras la anterior no cumpla todos sus criterios de salida.
-2. Cada cambio debe conservar PHP puro, `strict_types=1`, formatos nativos JAH/PHP y la prohibición de JSON en el runtime.
-3. DataCore es la base de datos oficial. No se añadirá otra base como dependencia del núcleo.
-4. Seguridad, tipado, auditoría y organización deben estar habilitados por definición, no depender de disciplina manual.
-5. Toda función nueva requiere pruebas positivas, negativas y de recuperación proporcionales al riesgo.
-6. La suite completa, lint y health deben pasar antes de cerrar una fase.
-7. Ninguna documentación puede prometer una garantía que no esté implementada y probada.
-8. Las APIs heredadas se eliminan o aíslan; el código nuevo sólo usa APIs oficiales de `src/JAS` y `src/DataCore`.
-9. Los cambios incompatibles requieren manifiesto, reporte de compatibilidad y nota de migración.
-10. Una auditoría o certificación externa nunca se sustituye por una afirmación del proyecto.
+2. Cada cambio debe conservar PHP puro, `strict_types=1`, formatos nativos JAH/PHP y la prohibición de JSON en almacenamiento, protocolos y configuración operativa.
+3. JAS no depende de archivos JSON, JavaScript, TypeScript, Node, npm, Composer ni artefactos frontend ejecutables; las herramientas PHP externas se ejecutan como PHAR verificados fuera del runtime.
+4. Todo lenguaje externo se conecta fuera de proceso mediante JASB y adaptadores equivalentes a los SDK C/C++; no se incrusta dentro del motor.
+5. DataCore es la base de datos oficial. No se añadirá otra base como dependencia del núcleo.
+6. Seguridad, tipado, auditoría y organización deben estar habilitados por definición, no depender de disciplina manual.
+7. Toda función nueva requiere pruebas positivas, negativas y de recuperación proporcionales al riesgo.
+8. La suite completa, lint y health deben pasar antes de cerrar una fase.
+9. Ninguna documentación puede prometer una garantía que no esté implementada y probada.
+10. Las APIs heredadas se eliminan o aíslan; el código nuevo sólo usa APIs oficiales de `src/JAS` y `src/DataCore`.
+11. Los cambios incompatibles requieren manifiesto, reporte de compatibilidad y nota de migración.
+12. Una auditoría o certificación externa nunca se sustituye por una afirmación del proyecto.
 
 ## Definición de terminado
 
@@ -299,7 +316,7 @@ Estado: **completada**
 - El formateador oficial produce una representación canónica de las definiciones y ofrece `--check` no mutante para CI; PHP de aplicación queda fuera de su superficie de reescritura.
 - El analizador indexa símbolos `App\\`, comprueba rutas PSR-4, resuelve imports internos y rechaza flujos entre `App\\Domains\\<Dominio>` cuando la dependencia no está declarada.
 - `analyze` reconstruye el grafo de producción mediante el lector literal seguro, por lo que contratos, tipos, eventos o dependencias rotos hacen fallar CI sin ejecutar definiciones.
-- PHPStan 2.x está integrado en nivel 5 para todo `src/JAS` y `src/DataCore`, sin baseline; el workflow usa acciones fijadas por SHA y valida PHP 8.2/8.4 antes de aceptar cambios.
+- PHPStan 2.1.56 está integrado como PHAR externo con SHA-256 fijado, en nivel 5 para todo `src/JAS` y `src/DataCore`, sin Composer ni baseline; el workflow valida PHP 8.2/8.4 antes de aceptar cambios.
 - El servicio de lenguaje nativo ofrece diagnósticos, hover, definición, referencias y rename para tipos, dominios, acciones, eventos y capacidades; trabaja sobre PHP literal sin ejecutar código ni persistir JSON.
 - El rename usa vista previa, validación por clase de símbolo, detección de colisiones, hashes contra cambios concurrentes, bloqueo y reemplazo recuperable de todas las referencias.
 - `app:docs` genera inventario técnico, fingerprint y diagramas Mermaid deterministas; `app:diagram` publica los grafos de dominios y contratos como artefacto independiente.
@@ -327,7 +344,15 @@ Estado: **completada**
 
 ## Fase 8 — Escala y operación
 
-Estado: **pendiente**
+Estado: **en progreso**
+
+### Avance verificado
+
+- Los trabajos que agotan intentos forman una DLQ durable sobre el mismo journal de la cola, conservando payload, contrato, error, intentos y deduplicación sin duplicar fuentes de verdad.
+- La compactación conserva siempre la DLQ; listado y estadísticas tienen límites explícitos y los errores terminales se acotan antes de persistirse.
+- El reproceso exige doble control ligado a la huella completa del trabajo fallido, valida al aprobador y crea un trabajo nuevo con referencias al original y a la aprobación.
+- Repetir el reproceso devuelve el mismo trabajo; una aprobación consumida puede retomarse después de backpressure sin abrir una segunda autorización.
+- CLI, auditoría, métricas y procedimiento operativo están documentados en `docs/JAS_OPERATIONS.md`; pruebas adversariales: `JAS DEAD LETTER: PASS`.
 
 ### Alcance
 
@@ -409,7 +434,7 @@ cambio futuro de estado debe actualizar simultáneamente la fase y esta tabla.
 | 5 | Completada | Identidad y acceso institucional: `php tests/test_jas_identity.php` y `php tests/test_jas_security.php` |
 | 6 | Completada | JAS Web: `php tests/test_jas_web.php`, `php tests/test_jas_accessibility.php` y `php tests/test_jas_upload.php` |
 | 7 | Completada | Tooling y ciclo de proyecto: `php tests/test_jas_tooling.php`, `php tests/test_jas_language_server.php`, `php tests/test_jas_project_lifecycle.php` y `php bin/jas static` |
-| 8 | Pendiente | No iniciada |
+| 8 | En progreso | DLQ y reproceso gobernado: `php tests/test_jas_dead_letter.php`; gate transversal: `php tests/run_all.php` |
 | 9 | Pendiente | No iniciada |
 | 10 | Pendiente | No iniciada |
 
@@ -418,6 +443,6 @@ registrado es `JAS SUITE: PASS`.
 
 ## Próxima acción obligatoria
 
-Iniciar **Fase 8 — Escala y operación** por dead-letter queues y reproceso con
-doble control, conservando contexto e idempotencia. No iniciar la Fase 9 hasta
+Continuar **Fase 8 — Escala y operación** con liveness, readiness y health HTTP,
+seguido por alertas y límites preventivos de disco. No iniciar la Fase 9 hasta
 cerrar y registrar todos los criterios de salida de la Fase 8.

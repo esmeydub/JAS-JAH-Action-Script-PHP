@@ -25,6 +25,8 @@ final class Job
         public readonly float $createdAt = 0.0,
         public readonly ?string $objectId = null,
         public readonly ?string $deduplicationKey = null,
+        public readonly ?string $originJobId = null,
+        public readonly ?string $reprocessApprovalId = null,
         public string $state = self::QUEUED,
         public int $attempts = 0,
         public ?string $workerId = null,
@@ -36,6 +38,11 @@ final class Job
             throw new InvalidArgumentException('Trabajo JAS inválido');
         }
         if ($maxAttempts < 1) throw new InvalidArgumentException('maxAttempts debe ser mayor que cero');
+        if (($originJobId === null) !== ($reprocessApprovalId === null)
+            || ($originJobId !== null && ($originJobId === '' || strlen($originJobId) > 128
+                || $reprocessApprovalId === '' || strlen((string) $reprocessApprovalId) > 128))) {
+            throw new InvalidArgumentException('Origen de reproceso JAS inválido');
+        }
         if (!in_array($state, self::STATES, true)) throw new InvalidArgumentException('Estado de trabajo JAS inválido');
         if ($attempts < 0 || $attempts > $maxAttempts) throw new InvalidArgumentException('Intentos de trabajo JAS inválidos');
         if ($state === self::LEASED && ($workerId === null || $workerId === '' || $leasedUntil === null)) {
@@ -62,7 +69,9 @@ final class Job
             $maxAttempts,
             microtime(true),
             $objectId,
-            $deduplicationKey
+            $deduplicationKey,
+            null,
+            null,
         );
     }
 
@@ -83,6 +92,8 @@ final class Job
             (float)($data['createdAt'] ?? microtime(true)),
             isset($data['objectId']) ? (string)$data['objectId'] : null,
             isset($data['deduplicationKey']) ? (string)$data['deduplicationKey'] : null,
+            isset($data['originJobId']) ? (string)$data['originJobId'] : null,
+            isset($data['reprocessApprovalId']) ? (string)$data['reprocessApprovalId'] : null,
             (string)($data['state'] ?? self::QUEUED),
             (int)($data['attempts'] ?? 0),
             isset($data['workerId']) ? (string)$data['workerId'] : null,

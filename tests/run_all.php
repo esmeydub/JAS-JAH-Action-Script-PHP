@@ -14,6 +14,7 @@ if (!extension_loaded('pcntl')) {
 $root = dirname(__DIR__);
 $tests = [
     $root . '/tests/test_jas_core.php',
+    $root . '/tests/test_jas_pure_php.php',
     $root . '/tests/test_jas_definition.php',
     $root . '/tests/test_jas_web.php',
     $root . '/tests/test_jas_components.php',
@@ -29,6 +30,7 @@ $tests = [
     $root . '/tests/test_jas_fuzz.php',
     $root . '/tests/test_jas_integrated.php',
     $root . '/tests/test_jas_queue.php',
+    $root . '/tests/test_jas_dead_letter.php',
     $root . '/tests/test_jas_cluster.php',
     $root . '/tests/test_jas_enterprise.php',
     $root . '/tests/test_jas_security.php',

@@ -1,5 +1,10 @@
 # JAS — JAH Action Script PHP
 
+JAS is a 100% pure-PHP typed language and runtime layer. Its types, routines,
+DataCore and official tooling contain no JavaScript or embedded foreign runtime.
+External languages integrate out of process through JASB adapters, following the
+same boundary as the C and C++ SDKs.
+
 ## A secure, typed application runtime for PHP
 
 **Hackathon category:** Developer Tools
@@ -154,7 +159,7 @@ completed.
 Important human-directed decisions were preserved throughout the work:
 
 - the project is JAS — JAH Action Script PHP, not a generic PHP framework;
-- no JSON is used as an operational runtime format;
+- no JSON or JavaScript artifacts exist in the engine;
 - no external AI connector belongs in the JAS runtime;
 - DataCore remains the source of truth;
 - SQL Mirror exists to reduce adoption anxiety, but SQL remains untrusted;
@@ -219,7 +224,7 @@ compatibilidad, está en [Crear una aplicación JAS funcional](docs/JAS_GETTING_
 
 ## Security model and limitations
 
-- Runtime persistence uses native JAH/PHP and JASB formats, not JSON.
+- The engine uses native JAH/PHP and JASB formats and rejects JSON/JavaScript artifacts.
 - Secrets belong in `.env`; the file is ignored by Git.
 - Sensitive DataCore fields can be encrypted and cannot be exposed to SQL Mirror.
 - Signed evidence detects alteration; it does not prevent host-level compromise.

@@ -98,7 +98,7 @@ try {
     if ($error->getMessage() !== 'language_rename_invalid') throw $error;
 }
 try {
-    $server->hover($root, '../composer.json', 1, 1);
+    $server->hover($root, '../outside.php', 1, 1);
     throw new RuntimeException('language_path_escape_accepted');
 } catch (RuntimeException $error) {
     if ($error->getMessage() !== 'language_position_invalid') throw $error;

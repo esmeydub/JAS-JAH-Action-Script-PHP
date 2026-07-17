@@ -1,6 +1,4 @@
 /.env
-/.phpunit.cache/
-/vendor/
 /runtime/*
 !/runtime/.gitkeep
 *.log

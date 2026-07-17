@@ -18,6 +18,16 @@ function jas_print(mixed $value): void
     echo "\n";
 }
 
+function jas_dead_letter_service(string $root): Jah\JAS\Queue\DeadLetterService
+{
+    return new Jah\JAS\Queue\DeadLetterService(
+        new Jah\JAS\Queue\PersistentJobQueue($root . '/runtime/queue'),
+        new Jah\JAS\Security\DualControlStore($root . '/runtime/security/dead-letter-approvals'),
+        new Jah\JAS\Persistence\AuditJournal($root . '/runtime/audit'),
+        new Jah\JAS\Telemetry\MetricsRegistry($root . '/runtime/telemetry'),
+    );
+}
+
 
 switch ($command) {
     case 'test':
@@ -51,6 +61,23 @@ switch ($command) {
         $queue = new Jah\JAS\Queue\PersistentJobQueue($root . '/runtime/queue');
         $queue->compact(true);
         echo "Queue compacted\n";
+        exit(0);
+    case 'queue:dead':
+        jas_print(jas_dead_letter_service($root)->list((int) ($argv[2] ?? 100)));
+        exit(0);
+    case 'queue:reprocess:request':
+        jas_print(jas_dead_letter_service($root)->request(
+            (string) ($argv[2] ?? ''), (string) ($argv[3] ?? ''), (string) ($argv[4] ?? '')
+        ));
+        exit(0);
+    case 'queue:reprocess:approve':
+        jas_print(jas_dead_letter_service($root)->approve((string) ($argv[2] ?? ''), (string) ($argv[3] ?? '')));
+        exit(0);
+    case 'queue:reprocess':
+        jas_print(jas_dead_letter_service($root)->reprocess(
+            (string) ($argv[2] ?? ''), (string) ($argv[3] ?? ''),
+            (string) ($argv[4] ?? ''), (string) ($argv[5] ?? '')
+        )->toArray());
         exit(0);
     case 'metrics':
         $metrics = new Jah\JAS\Telemetry\MetricsRegistry($root . '/runtime/telemetry');
@@ -225,9 +252,10 @@ switch ($command) {
         jas_print($result);
         exit(0);
     case 'static':
-        $phpstan = $root . '/vendor/bin/phpstan';
-        if (!is_file($phpstan)) {
-            fwrite(STDERR, "PHPStan is not installed. Run: composer install\n");
+        $configuredPhpStan = trim((string) getenv('JAS_PHPSTAN'));
+        $phpstan = $configuredPhpStan === '' ? false : realpath($configuredPhpStan);
+        if ($phpstan === false || !is_file($phpstan) || is_link($phpstan)) {
+            fwrite(STDERR, "PHPStan PHAR not found. Set JAS_PHPSTAN to a verified phpstan.phar path.\n");
             exit(2);
         }
         $staticCommand = escapeshellarg(PHP_BINARY)
@@ -296,6 +324,10 @@ switch ($command) {
         echo "  bin/jas queue:stats    Estado de la cola persistente\n";
         echo "  bin/jas queue:recover  Recupera leases vencidos\n";
         echo "  bin/jas queue:compact  Compacta el journal de trabajos\n";
+        echo "  bin/jas queue:dead [límite]                  Lista la DLQ durable\n";
+        echo "  bin/jas queue:reprocess:request <job> <solicitante> <request-id>\n";
+        echo "  bin/jas queue:reprocess:approve <aprobación> <aprobador>\n";
+        echo "  bin/jas queue:reprocess <job> <aprobación> <request-id> <aprobador>\n";
         echo "  bin/jas metrics        Muestra telemetría local\n";
         echo "  bin/jas audit:verify   Verifica la cadena de auditoría\n";
         echo "  bin/jas events:verify  Verifica la cadena de eventos\n";

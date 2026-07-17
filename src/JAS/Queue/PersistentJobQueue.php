@@ -76,6 +76,7 @@ final class PersistentJobQueue
 
     public function fail(string $jobId, string $workerId, string $error, bool $retry = true): void
     {
+        if ($error === '' || strlen($error) > 4_096 || str_contains($error, "\0")) throw new RuntimeException('job_error_invalid');
         $this->locked(function () use ($jobId, $workerId, $error, $retry): void {
             $jobs = $this->rebuildUnlocked();
             $job = $jobs[$jobId] ?? null;
@@ -108,12 +109,54 @@ final class PersistentJobQueue
         return $this->locked(fn(): array => $this->rebuildUnlocked());
     }
 
+    /** @return list<Job> */
+    public function deadLetters(int $limit = 100): array
+    {
+        if ($limit < 1 || $limit > 1_000) throw new RuntimeException('dead_letter_limit_invalid');
+        $failed = array_values(array_filter($this->all(), static fn(Job $job): bool => $job->state === Job::FAILED));
+        usort($failed, static fn(Job $left, Job $right): int => $right->createdAt <=> $left->createdAt);
+        return array_slice($failed, 0, $limit);
+    }
+
+    public function reprocessed(string $originJobId, string $approvalId): ?Job
+    {
+        foreach ($this->all() as $job) {
+            if ($job->originJobId === $originJobId && $job->reprocessApprovalId === $approvalId) return $job;
+        }
+        return null;
+    }
+
+    public function reprocessFailed(string $originJobId, string $approvalId): Job
+    {
+        if ($approvalId === '' || strlen($approvalId) > 128) throw new RuntimeException('dead_letter_approval_invalid');
+        return $this->locked(function () use ($originJobId, $approvalId): Job {
+            $jobs = $this->rebuildUnlocked();
+            foreach ($jobs as $existing) {
+                if ($existing->originJobId === $originJobId && $existing->reprocessApprovalId === $approvalId) return $existing;
+            }
+            $origin = $jobs[$originJobId] ?? throw new RuntimeException('job_not_found');
+            if ($origin->state !== Job::FAILED) throw new RuntimeException('dead_letter_not_failed');
+            $queued = count(array_filter($jobs, static fn(Job $item): bool => $item->state === Job::QUEUED || $item->state === Job::LEASED));
+            if ($queued >= $this->maxQueued) throw new RuntimeException('queue_full');
+            $job = new Job(
+                bin2hex(random_bytes(16)), $origin->action, $origin->payload, $origin->capability,
+                $origin->priority, $origin->maxAttempts, microtime(true), $origin->objectId,
+                'dlq:' . hash('sha256', $originJobId . "\0" . $approvalId), $originJobId, $approvalId,
+            );
+            $this->appendUnlocked([
+                'type' => 'REPROCESS', 'job' => $job->toArray(), 'origin_job_id' => $originJobId,
+                'approval_id' => $approvalId, 'at' => microtime(true),
+            ]);
+            return $job;
+        });
+    }
+
     public function stats(): array
     {
         $jobs = $this->all();
         $counts = [Job::QUEUED=>0, Job::LEASED=>0, Job::COMPLETED=>0, Job::FAILED=>0, Job::CANCELLED=>0];
         foreach ($jobs as $job) $counts[$job->state] = ($counts[$job->state] ?? 0) + 1;
-        return ['total'=>count($jobs), 'states'=>$counts, 'capacity'=>$this->maxQueued];
+        return ['total'=>count($jobs), 'states'=>$counts, 'dead_letters'=>$counts[Job::FAILED], 'capacity'=>$this->maxQueued];
     }
 
     public function compact(bool $keepTerminal = true): void
@@ -125,7 +168,7 @@ final class PersistentJobQueue
             if ($h === false) throw new RuntimeException('No se pudo crear compactación de cola');
             try {
                 foreach ($jobs as $job) {
-                    if (!$keepTerminal && in_array($job->state, [Job::COMPLETED, Job::FAILED, Job::CANCELLED], true)) continue;
+                    if (!$keepTerminal && in_array($job->state, [Job::COMPLETED, Job::CANCELLED], true)) continue;
                     $line = PhpSerializer::encode(['type'=>'SUBMIT','job'=>$job->toArray(),'at'=>microtime(true)]) . "\n";
                     if (fwrite($h, $line) !== strlen($line)) throw new RuntimeException('Compactación incompleta');
                 }
@@ -178,7 +221,7 @@ final class PersistentJobQueue
                 $event = PhpSerializer::decode(trim($line));
                 if (!is_array($event) || !isset($event['type'])) continue;
                 $type = (string)$event['type'];
-                if ($type === 'SUBMIT' && is_array($event['job'] ?? null)) {
+                if (($type === 'SUBMIT' || $type === 'REPROCESS') && is_array($event['job'] ?? null)) {
                     try {
                         $job = Job::fromArray($event['job']);
                     } catch (\InvalidArgumentException $e) {
