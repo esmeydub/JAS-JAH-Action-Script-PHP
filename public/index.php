@@ -42,7 +42,7 @@ if (!RequestGuard::browserIsAuthorized()) {
     $safeToken = htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8');
     $safeError = htmlspecialchars($loginError, ENT_QUOTES, 'UTF-8');
     echo '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Acceso JAH</title></head><body>';
-    echo '<h1>JAS — Jah ActionScript</h1><p>Introduce JAH_API_KEY para continuar.</p>';
+    echo '<h1>JAS — JAH Action Script PHP</h1><p>Introduce JAH_API_KEY para continuar.</p>';
     if ($safeError !== '') echo '<p>' . $safeError . '</p>';
     echo '<form method="post"><input type="hidden" name="action" value="login"><input type="hidden" name="csrf_token" value="' . $safeToken . '"><input type="password" name="access_key" required><button type="submit">Entrar</button></form>';
     echo '</body></html>';
@@ -179,7 +179,7 @@ function brief(mixed $value, int $length = 220): string {
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>JAS — Jah ActionScript</title>
+    <title>JAS — JAH Action Script PHP</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Courier New', monospace; background: #0f0f23; color: #e0e0e0; max-width: 1000px; margin: 0 auto; padding: 20px; }
@@ -210,11 +210,11 @@ function brief(mixed $value, int $length = 220): string {
     </style>
 </head>
 <body>
-    <h1>JAS — Jah ActionScript</h1>
-    <p class="subtitle">Jah ActionScript + DataCoreTurbo + MemoryPyramid en PHP puro</p>
+    <h1>JAS — JAH Action Script PHP</h1>
+    <p class="subtitle">JAH Action Script PHP + DataCoreTurbo + MemoryPyramid en PHP puro</p>
 
     <div class="runtime">
-        <div class="chip">ActionScript PHP: ACTIVE</div>
+        <div class="chip">JAS: ACTIVE</div>
         <div class="chip">JAS Runtime: local</div>
         <div class="chip">DataCoreTurbo: binary memory</div>
         <div class="chip">MemoryPyramid: Hot / Warm / Cold</div>
@@ -285,7 +285,7 @@ function brief(mixed $value, int $length = 220): string {
     <h2>SALK Security</h2>
     <pre><?= e(php_dump($salkResult)) ?></pre>
 
-    <h2>ActionScript PHP trace</h2>
+    <h2>JAS action trace</h2>
     <pre><?= e(php_dump($actionsTrace)) ?></pre>
     <?php endif; ?>
 
@@ -305,7 +305,7 @@ function brief(mixed $value, int $length = 220): string {
             <option value="warm">Warm / Tibia</option>
             <option value="cold">Cold / Fría</option>
         </select>
-        <button type="submit">Guardar con ActionScript PHP / Save</button>
+        <button type="submit">Guardar con JAS / Save</button>
     </form>
 
     <?php elseif ($action === 'search'): ?>
