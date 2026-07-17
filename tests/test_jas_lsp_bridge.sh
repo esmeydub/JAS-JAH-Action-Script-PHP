@@ -2,6 +2,7 @@
 set -eu
 
 bridge=${1:-sdk/cpp/lsp/jas-lsp-bridge}
+timeout_bridge=${2:-}
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 workspace=$(mktemp -d /tmp/jas_lsp_bridge.XXXXXX)
 input=$(mktemp /tmp/jas_lsp_input.XXXXXX)
@@ -82,8 +83,20 @@ set +e
 JAS_TEST_SECRET=must_not_leak "$bridge" "$(command -v php)" "$fake_cli" "$workspace" < /dev/null > "$attack_output" 2> "$attack_error"
 status=$?
 set -e
-test "$status" -eq 23
+test "$status" -eq 1
 test ! -s "$attack_output"
-test ! -s "$attack_error"
+grep -q '^JAS LSP bridge terminated after backend failure$' "$attack_error"
+
+if test -n "$timeout_bridge"; then
+    # Backend colgado: el watchdog mata PHP y corta la sesión completa.
+    printf '%s\n' '<?php while (true) { usleep(100000); }' > "$fake_cli"
+    printf 'Content-Length: %s\r\n\r\n%s' "${#body_initialize}" "$body_initialize" > "$attack_input"
+    set +e
+    "$timeout_bridge" "$(command -v php)" "$fake_cli" "$workspace" < "$attack_input" > "$attack_output" 2> "$attack_error"
+    status=$?
+    set -e
+    test "$status" -eq 1
+    grep -q '^JAS LSP bridge terminated an unresponsive backend$' "$attack_error"
+fi
 printf '%s\n' 'JAS STANDARD LSP BRIDGE LIFECYCLE: PASS'
 printf '%s\n' 'JAS LSP BRIDGE SECURITY BOUNDARY: PASS'

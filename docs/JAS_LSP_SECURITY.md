@@ -1,8 +1,8 @@
 # Frontera de seguridad del servidor de lenguaje JAS
 
-Estado: L0–L2 implementadas y bridge L3 operativo con lifecycle LSP estándar.
-El endurecimiento, la interoperabilidad completa y la distribución siguen
-abiertos; JAS todavía no se presenta como servidor LSP terminado.
+Estado: L0–L3 completadas; bridge, lifecycle, aislamiento y timeout verificados.
+Las capacidades completas L4, la interoperabilidad y la distribución siguen
+abiertas; JAS todavía no se presenta como servidor LSP terminado.
 
 ## Procesos y zonas de confianza
 
@@ -103,8 +103,8 @@ implementar posiciones y rangos Unicode en L1.
   cierra su extremo; el secreto no aparece en argv ni en archivos.
 - `DocumentStore` y la conversión UTF-16 están implementados; sincronización
   incremental por rangos permanece deshabilitada hasta una ampliación posterior.
-- `language:serve`, spawn fijo, framing JSON-RPC y multiplexación asíncrona están
-  implementados; faltan timeout, stderr acotado y reinicio controlado.
+- `language:serve`, spawn fijo, framing JSON-RPC, multiplexación asíncrona,
+  timeout y fallo cerrado del backend están implementados.
 - La validación C actual comprueba framing TLV y límites estructurales; el bridge
   añadirá UTF-8 estricto, nombres de campo y semántica antes de publicar binarios.
 - No hay certificación externa. Fuzzing, sandbox por sistema operativo, revisión
@@ -126,7 +126,9 @@ implementar posiciones y rangos Unicode en L1.
   destruir el canal. Los mensajes externos de error son estables y redactados.
 
 Estos controles reducen la superficie, pero no equivalen a una certificación.
-La caída del servicio PHP cierra la sesión completa y propaga su código de salida;
-no se intenta reconstruir silenciosamente documentos ni requests parciales. El
-cliente puede iniciar un bridge nuevo desde cero. Quedan pendientes timeout y
-cancelación completa, sandbox sin red, fuzzing prolongado y revisión independiente.
+La caída del servicio PHP cierra la sesión completa; no se intenta reconstruir
+silenciosamente documentos ni requests parciales. El cliente puede iniciar un
+bridge nuevo desde cero. Cada request expira a los 15 segundos mediante un valor
+compilado que el editor no puede ampliar; el lector también limita frames PHP
+parciales. Quedan pendientes cancelación completa, sandbox sin red, fuzzing
+prolongado y revisión independiente.

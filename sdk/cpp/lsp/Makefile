@@ -10,7 +10,9 @@ jas-lsp-bridge: jas_lsp_bridge.cpp
 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDLIBS)
 
 test: jas-lsp-bridge
-	../../../tests/test_jas_lsp_bridge.sh ./jas-lsp-bridge
+	$(CXX) $(CXXFLAGS) -DJAS_LSP_REQUEST_TIMEOUT_MS=200 jas_lsp_bridge.cpp -o /tmp/jas-lsp-bridge-timeout-test $(LDLIBS)
+	../../../tests/test_jas_lsp_bridge.sh ./jas-lsp-bridge /tmp/jas-lsp-bridge-timeout-test
+	rm -f /tmp/jas-lsp-bridge-timeout-test
 
 clean:
 	rm -f jas-lsp-bridge

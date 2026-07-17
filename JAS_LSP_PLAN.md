@@ -1,6 +1,6 @@
 # Plan normativo del servidor LSP de JAS
 
-Estado: **en progreso; L0–L2 completadas y L3 operativa en endurecimiento**
+Estado: **en progreso; L0–L3 completadas, L4 es la siguiente acción**
 
 ## Objetivo y frontera inmutable
 
@@ -72,7 +72,7 @@ referencias y plan de rename sobre documentos guardados/no guardados.
 
 ## Fase L3 — Bridge externo C++
 
-Estado: **operativa; lifecycle estándar verificado, falta cerrar timeout y resiliencia**
+Estado: **completada**
 
 - Implementar dos pares de pipes: editor ⇄ C++ y C++ ⇄ PHP.
 - Leer `Content-Length` exactamente y soportar frames parciales/consecutivos.
@@ -95,9 +95,12 @@ máximo de 256 requests activos con ID único, paths canónicos, entorno vacío,
 descriptores allowlisted, core dumps desactivados, `no_new_privs`, umask 077 y
 stderr del hijo sin salida. Las pruebas negativas cubren framing byte a byte,
 método ejecutable rechazado, ambigüedad de claves, Content-Length excesivo,
-rutas inválidas y ausencia de fuga. La caída de PHP termina el bridge con el
-mismo código y sin reiniciar estado parcial; el cliente debe reiniciar la sesión
-completa. Antes de cerrar L3 falta el timeout interno de solicitudes.
+rutas inválidas y ausencia de fuga. La caída de PHP termina el bridge sin
+reiniciar estado parcial; el cliente debe reiniciar la sesión completa. Cada
+request tiene un deadline interno inmutable de 15 segundos y el lector vigila
+tanto silencio como frames PHP parciales. La prueba compila una variante de 200
+ms y demuestra que un backend deliberadamente colgado es terminado. L3 queda
+cerrada con `JAS LSP BRIDGE SECURITY BOUNDARY: PASS`.
 
 ## Fase L4 — Capacidades mínimas
 
@@ -137,10 +140,10 @@ Cierre: un rename soportado actualiza referencias y archivo mediante una operaci
 
 Cierre: no hay ejecución, traversal, fuga sensible, crecimiento ilimitado ni caída persistente.
 
-Avance: límites de framing/árbol/strings/requests, UTF-8 estricto, paths
+Avance: límites de framing/árbol/strings/requests, timeout interno, UTF-8 estricto, paths
 canónicos, clave por descriptor, entorno y FDs mínimos, errores redactados y
-pruebas ASan/UBSan ya están aplicados al bridge Linux. Cancelación, timeout,
-rate limiting temporal, sandbox sin red y fuzzing prolongado siguen pendientes.
+pruebas ASan/UBSan ya están aplicados al bridge Linux. Cancelación, rate
+limiting temporal, sandbox sin red y fuzzing prolongado siguen pendientes.
 
 ## Fase L7 — Interoperabilidad y distribución
 

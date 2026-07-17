@@ -12,6 +12,7 @@
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <poll.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -23,6 +24,7 @@
 #include <array>
 #include <atomic>
 #include <cerrno>
+#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -44,6 +46,12 @@ constexpr std::size_t MAX_DEPTH = 16;
 constexpr std::size_t MAX_ITEMS = 4096;
 constexpr std::size_t MAX_JSON_ITEMS = 65536;
 constexpr std::size_t MAX_PENDING_REQUESTS = 256;
+#ifndef JAS_LSP_REQUEST_TIMEOUT_MS
+#define JAS_LSP_REQUEST_TIMEOUT_MS 15000
+#endif
+constexpr auto REQUEST_TIMEOUT = std::chrono::milliseconds(JAS_LSP_REQUEST_TIMEOUT_MS);
+static_assert(JAS_LSP_REQUEST_TIMEOUT_MS >= 100 && JAS_LSP_REQUEST_TIMEOUT_MS <= 120000,
+    "JAS LSP request timeout must remain bounded");
 constexpr std::uint16_t OP_INITIALIZE = 600, OP_INITIALIZED = 601;
 constexpr std::uint16_t OP_OPEN = 610, OP_CHANGE = 611, OP_CLOSE = 612;
 constexpr std::uint16_t OP_HOVER = 620, OP_DEFINITION = 621, OP_REFERENCES = 622;
@@ -202,8 +210,25 @@ std::string hex(const std::uint8_t* data, std::size_t length) {
 void writeExact(int fd, const std::uint8_t* data, std::size_t length) {
     while (length) { const auto n = ::write(fd, data, length); if (n < 0 && errno == EINTR) continue; if (n <= 0) throw std::runtime_error("write_failed"); data += n; length -= static_cast<std::size_t>(n); }
 }
-void readExact(int fd, std::uint8_t* data, std::size_t length) {
-    while (length) { const auto n = ::read(fd, data, length); if (n < 0 && errno == EINTR) continue; if (n <= 0) throw std::runtime_error("read_failed"); data += n; length -= static_cast<std::size_t>(n); }
+bool descriptorReady(int fd, int timeoutMilliseconds) {
+    struct pollfd descriptor{fd, POLLIN, 0};
+    while (true) {
+        const int result = poll(&descriptor, 1, timeoutMilliseconds);
+        if (result < 0 && errno == EINTR) continue;
+        if (result < 0) throw std::runtime_error("poll_failed");
+        if (result == 0) return false;
+        return (descriptor.revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) != 0;
+    }
+}
+
+void readExactTimed(int fd, std::uint8_t* data, std::size_t length) {
+    while (length) {
+        if (!descriptorReady(fd, JAS_LSP_REQUEST_TIMEOUT_MS)) throw std::runtime_error("backend_read_timeout");
+        const auto n = ::read(fd, data, length);
+        if (n < 0 && errno == EINTR) continue;
+        if (n <= 0) throw std::runtime_error("read_failed");
+        data += n; length -= static_cast<std::size_t>(n);
+    }
 }
 
 struct Packet { std::uint16_t opcode{}; std::string request; std::string session; std::vector<std::uint8_t> payload; };
@@ -212,6 +237,7 @@ class JasChannel {
 public:
     JasChannel(int input, int output, std::array<std::uint8_t,32> key, std::string session) : input_(input), output_(output), key_(key), session_(std::move(session)) {}
     ~JasChannel() { OPENSSL_cleanse(key_.data(), key_.size()); }
+    bool ready(int timeoutMilliseconds) const { return descriptorReady(input_, timeoutMilliseconds); }
     void send(std::uint16_t opcode, const Map& payload) {
         const auto encoded = encodePayload(payload); const auto sequence = ++sequence_;
         std::vector<std::uint8_t> seed(session_.begin(), session_.end()); for (int shift = 56; shift >= 0; shift -= 8) seed.push_back(static_cast<std::uint8_t>(sequence >> shift));
@@ -227,10 +253,10 @@ public:
         writeExact(output_, header.data(), header.size()); writeExact(output_, body.data(), body.size());
     }
     Packet receive() {
-        std::array<std::uint8_t,4> header{}; readExact(input_, header.data(), header.size());
+        std::array<std::uint8_t,4> header{}; readExactTimed(input_, header.data(), header.size());
         const std::size_t size = (static_cast<std::size_t>(header[0]) << 24) | (static_cast<std::size_t>(header[1]) << 16) | (static_cast<std::size_t>(header[2]) << 8) | header[3];
         if (size < 68 || size > MAX_LSP_BYTES + 1024) throw std::runtime_error("packet_size");
-        std::vector<std::uint8_t> bytes(size); readExact(input_, bytes.data(), size);
+        std::vector<std::uint8_t> bytes(size); readExactTimed(input_, bytes.data(), size);
         if (!std::equal(bytes.begin(), bytes.begin()+5, std::array<std::uint8_t,5>{'J','A','S','B',2}.begin())) throw std::runtime_error("packet_header");
         const auto payloadLength = readU32(bytes, 14); const auto requestLength = bytes[18], sessionLength = bytes[19];
         const std::size_t bodyLength = 36u + requestLength + sessionLength + payloadLength;
@@ -326,14 +352,17 @@ std::uint16_t opcodeFor(const std::string& method) {
 std::string kindFor(const std::string& method) { return method=="initialized" || method=="textDocument/didOpen" || method=="textDocument/didChange" || method=="textDocument/didClose" || method=="exit" ? "notification" : "request"; }
 
 class Translator {
-    std::mutex mutex_; std::map<std::string,std::int32_t> versions_; std::set<std::string> pending_; std::string encoding_="utf-16"; std::string workspace_;
+    std::mutex mutex_; std::map<std::string,std::int32_t> versions_;
+    std::map<std::string,std::chrono::steady_clock::time_point> pending_;
+    std::string encoding_="utf-16"; std::string workspace_;
     static const rapidjson::Value& required(const rapidjson::Value& object,const char* name){if(!object.IsObject()||!object.HasMember(name))throw std::runtime_error("params_invalid");return object[name];}
     static std::string string(const rapidjson::Value& value){if(!value.IsString())throw std::runtime_error("params_invalid");return {value.GetString(),value.GetStringLength()};}
     std::int32_t version(const std::string& uri){std::lock_guard lock(mutex_);auto it=versions_.find(uri);return it==versions_.end()?0:it->second;}
     static std::string idKey(const Value& value) {if(const auto* id=std::get_if<std::int32_t>(&value.data))return "i:"+std::to_string(*id);if(const auto* id=std::get_if<std::string>(&value.data))return "s:"+*id;throw std::runtime_error("id_invalid");}
-    void registerRequest(const Value& id){std::lock_guard lock(mutex_);if(pending_.size()>=MAX_PENDING_REQUESTS||!pending_.insert(idKey(id)).second)throw std::runtime_error("request_backpressure");}
+    void registerRequest(const Value& id){std::lock_guard lock(mutex_);if(pending_.size()>=MAX_PENDING_REQUESTS||!pending_.emplace(idKey(id),std::chrono::steady_clock::now()+REQUEST_TIMEOUT).second)throw std::runtime_error("request_backpressure");}
     void completeRequest(const Value& id){std::lock_guard lock(mutex_);if(pending_.erase(idKey(id))!=1)throw std::runtime_error("response_unmatched");}
 public:
+    bool requestExpired(){std::lock_guard lock(mutex_);const auto now=std::chrono::steady_clock::now();return std::any_of(pending_.begin(),pending_.end(),[now](const auto& item){return item.second<=now;});}
     std::pair<std::uint16_t,Map> inbound(const rapidjson::Document& doc) {
         if(!doc.IsObject()||!doc.HasMember("jsonrpc")||!doc["jsonrpc"].IsString()||std::string_view(doc["jsonrpc"].GetString(),doc["jsonrpc"].GetStringLength())!="2.0"||!doc.HasMember("method")||!doc["method"].IsString())throw std::runtime_error("request_invalid");
         const std::string method(doc["method"].GetString(),doc["method"].GetStringLength()); const std::string kind=kindFor(method);
@@ -400,6 +429,8 @@ public:
     }
 };
 
+void interruptHandler(int) {}
+
 std::string canonicalPath(const char* raw, bool directory, bool executable) {
     char resolved[PATH_MAX];
     if (!raw || !*raw || !realpath(raw, resolved)) throw std::runtime_error("startup_path_invalid");
@@ -445,12 +476,12 @@ Child spawnPhp(const std::string& php,const std::string& jas,const std::string& 
 
 int main(int argc,char** argv){
     if(argc!=4){std::cerr<<"usage: jas-lsp-bridge <php-binary> <jas-cli> <workspace>\n";return 2;}
-    signal(SIGPIPE, SIG_IGN);
+    signal(SIGPIPE, SIG_IGN);struct sigaction interruptAction{};interruptAction.sa_handler=interruptHandler;sigemptyset(&interruptAction.sa_mask);interruptAction.sa_flags=0;if(sigaction(SIGUSR1,&interruptAction,nullptr)!=0){std::cerr<<"JAS LSP bridge could not install safeguards\n";return 2;}
     std::string php,jas,workspace;try{php=canonicalPath(argv[1],false,true);jas=canonicalPath(argv[2],false,false);workspace=canonicalPath(argv[3],true,false);}catch(...){std::cerr<<"JAS LSP bridge rejected startup paths\n";return 2;}
     std::array<std::uint8_t,32> key{},sessionBytes{};if(RAND_bytes(key.data(),key.size())!=1||RAND_bytes(sessionBytes.data(),16)!=1){std::cerr<<"JAS LSP bridge could not initialize\n";return 2;}
-    Child child{};std::atomic<bool> running{true};try{child=spawnPhp(php,jas,workspace,key);JasChannel channel(child.input,child.output,key,hex(sessionBytes.data(),16));OPENSSL_cleanse(key.data(),key.size());OPENSSL_cleanse(sessionBytes.data(),sessionBytes.size());Translator translator;LspWriter writer;bool framingFailure=false;
-        std::thread reader([&]{try{while(running)translator.outbound(channel.receive(),writer);}catch(...){running=false;}});
-        while(running){std::optional<std::string> body;try{body=readLspMessage();}catch(...){framingFailure=true;break;}if(!body)break;rapidjson::Document doc;doc.Parse<rapidjson::kParseValidateEncodingFlag|rapidjson::kParseStopWhenDoneFlag|rapidjson::kParseIterativeFlag>(body->data(),body->size());if(doc.HasParseError()){try{writer.error(nullptr,-32700,"Parse error");}catch(...){break;}continue;}try{std::size_t jsonItems=0;validateJson(doc,0,jsonItems);auto [opcode,message]=translator.inbound(doc);channel.send(opcode,message);if(opcode==OP_EXIT)break;}catch(const std::exception&){const rapidjson::Value* id=doc.IsObject()&&doc.HasMember("id")?&doc["id"]:nullptr;if(id){try{writer.error(id,-32602,"Invalid or unsupported language request");}catch(...){break;}}}}
-        close(child.output);if(reader.joinable())reader.join();close(child.input);int status=0;waitpid(child.pid,&status,0);if(framingFailure){std::cerr<<"JAS LSP bridge rejected malformed framing\n";return 1;}return WIFEXITED(status)?WEXITSTATUS(status):1;
+    Child child{};std::atomic<bool> running{true};std::atomic<bool> timedOut{false},backendFailed{false},gracefulExit{false};try{child=spawnPhp(php,jas,workspace,key);JasChannel channel(child.input,child.output,key,hex(sessionBytes.data(),16));OPENSSL_cleanse(key.data(),key.size());OPENSSL_cleanse(sessionBytes.data(),sessionBytes.size());Translator translator;LspWriter writer;bool framingFailure=false;const pthread_t mainThread=pthread_self();
+        std::thread reader([&]{try{while(running){if(channel.ready(25)){translator.outbound(channel.receive(),writer);continue;}if(translator.requestExpired()){timedOut=true;running=false;kill(child.pid,SIGKILL);pthread_kill(mainThread,SIGUSR1);break;}}}catch(...){if(!gracefulExit){backendFailed=true;kill(child.pid,SIGKILL);}running=false;pthread_kill(mainThread,SIGUSR1);}});
+        while(running){std::optional<std::string> body;try{body=readLspMessage();}catch(...){if(!timedOut&&!backendFailed)framingFailure=true;break;}if(!body)break;rapidjson::Document doc;doc.Parse<rapidjson::kParseValidateEncodingFlag|rapidjson::kParseStopWhenDoneFlag|rapidjson::kParseIterativeFlag>(body->data(),body->size());if(doc.HasParseError()){try{writer.error(nullptr,-32700,"Parse error");}catch(...){break;}continue;}try{std::size_t jsonItems=0;validateJson(doc,0,jsonItems);auto [opcode,message]=translator.inbound(doc);const bool exiting=opcode==OP_EXIT;if(exiting)gracefulExit=true;try{channel.send(opcode,message);}catch(...){if(exiting)gracefulExit=false;throw;}if(exiting)break;}catch(const std::exception&){const rapidjson::Value* id=doc.IsObject()&&doc.HasMember("id")?&doc["id"]:nullptr;if(id){try{writer.error(id,-32602,"Invalid or unsupported language request");}catch(...){break;}}}}
+        close(child.output);if(reader.joinable())reader.join();running=false;close(child.input);int status=0;waitpid(child.pid,&status,0);if(timedOut){std::cerr<<"JAS LSP bridge terminated an unresponsive backend\n";return 1;}if(framingFailure){std::cerr<<"JAS LSP bridge rejected malformed framing\n";return 1;}if(backendFailed){std::cerr<<"JAS LSP bridge terminated after backend failure\n";return 1;}return WIFEXITED(status)?WEXITSTATUS(status):1;
     }catch(const std::exception&){running=false;OPENSSL_cleanse(key.data(),key.size());OPENSSL_cleanse(sessionBytes.data(),sessionBytes.size());if(child.output>=0)close(child.output);if(child.input>=0)close(child.input);if(child.pid>0){kill(child.pid,SIGTERM);waitpid(child.pid,nullptr,0);}std::cerr<<"JAS LSP bridge stopped safely\n";return 1;}
 }
