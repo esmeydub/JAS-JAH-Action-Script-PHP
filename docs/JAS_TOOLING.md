@@ -55,3 +55,14 @@ El analizador reporta archivo, línea y código. Comprueba estructura obligatori
 `strict_types`, funciones de ejecución peligrosas, formatos prohibidos, posibles
 secretos y uso de superglobales fuera del límite web. Este análisis complementa,
 pero no sustituye, PHPStan, revisión humana y pruebas de seguridad externas.
+
+El índice semántico aplica PSR-4 interno (`App\\` → `app/`), detecta símbolos
+duplicados, imports internos sin definición y clases colocadas en una ruta que
+no corresponde a su namespace. El código de un dominio se organiza en
+`app/Domains/<Dominio>/` y usa `App\\Domains\\<Dominio>`; importar otro dominio
+exige que su definición aparezca en `dependencies`.
+
+Además, `analyze` reconstruye y valida el grafo completo con el lector literal
+seguro. Un tipo ausente, una acción fuera del prefijo de su dominio, un evento
+inválido o un ciclo de dependencias hace fallar CI sin ejecutar las definiciones.
+Los diagnósticos semánticos estables son `JAS030`–`JAS050`.

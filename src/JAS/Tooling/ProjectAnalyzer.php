@@ -48,6 +48,7 @@ final class ProjectAnalyzer
                 }
             }
         }
+        array_push($diagnostics, ...(new SemanticProjectAnalyzer())->analyze($root));
         usort($diagnostics, static fn(array $a, array $b): int => [$a['file'], $a['line'], $a['code']] <=> [$b['file'], $b['line'], $b['code']]);
         return ['ok' => $diagnostics === [], 'files' => $files, 'diagnostics' => $diagnostics];
     }

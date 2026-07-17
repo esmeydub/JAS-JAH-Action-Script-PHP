@@ -297,6 +297,8 @@ Estado: **en progreso**
 - `make:event` genera eventos versionados y `make:action` acepta entrada, salida y capacidad explícitas; la inferencia sólo se permite cuando existe un único tipo inequívoco.
 - `DefinitionEditor` actualiza campos, dependencias y contratos con referencias validadas; `PhpDefinitionStore` usa bloqueo, temporal verificado, `fsync` y reemplazo atómico sin seguir symlinks.
 - El formateador oficial produce una representación canónica de las definiciones y ofrece `--check` no mutante para CI; PHP de aplicación queda fuera de su superficie de reescritura.
+- El analizador indexa símbolos `App\\`, comprueba rutas PSR-4, resuelve imports internos y rechaza flujos entre `App\\Domains\\<Dominio>` cuando la dependencia no está declarada.
+- `analyze` reconstruye el grafo de producción mediante el lector literal seguro, por lo que contratos, tipos, eventos o dependencias rotos hacen fallar CI sin ejecutar definiciones.
 
 ### Alcance
 

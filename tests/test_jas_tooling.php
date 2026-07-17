@@ -56,18 +56,77 @@ $formatApply = $formatter->format($base, true);
 if ($formatApply['changed'] === [] || !$formatter->format($base, false)['ok']) throw new RuntimeException('formatter_not_idempotent');
 try { $tool->type($base, 'NuevoTramite'); throw new RuntimeException('generator_overwrote_file'); }
 catch (RuntimeException $e) { if ($e->getMessage() !== 'scaffold_file_exists') throw $e; }
+mkdir($base . '/app/Domains/Identidad', 0700);
+mkdir($base . '/app/Domains/Tramites', 0700);
+file_put_contents($base . '/app/Domains/Identidad/IdentityService.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Domains\Identidad;
+
+final class IdentityService {}
+PHP
+    . "\n");
+file_put_contents($base . '/app/Domains/Tramites/Workflow.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Domains\Tramites;
+
+use App\Domains\Identidad\IdentityService;
+
+final class Workflow
+{
+    public function __construct(public readonly IdentityService $identities) {}
+}
+PHP
+    . "\n");
 $analyzer = new ProjectAnalyzer();
 if (!$analyzer->analyze($base)['ok']) throw new RuntimeException('generated_project_analysis_failed');
 $inspector = new ApplicationInspector();
 $application = $inspector->load($base . '/app/application.php');
 $documentation = $inspector->markdown($application);
 if (!str_contains($documentation, '# Portal Gubernamental') || !str_contains($documentation, 'Fingerprint:')) throw new RuntimeException('application_documentation_failed');
+$tool->domain($base, 'Notificaciones', 'notificacion');
+mkdir($base . '/app/Domains/Notificaciones', 0700);
+file_put_contents($base . '/app/Domains/Notificaciones/Alert.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Domains\Notificaciones;
+
+use App\Domains\Identidad\IdentityService;
+use App\Missing\Ghost;
+
+final class Alert {}
+PHP
+    . "\n");
+file_put_contents($base . '/app/Web/Misplaced.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Web;
+
+final class ExpectedName {}
+PHP
+    . "\n");
 $unsafeMarker = $base . '/runtime/unsafe-definition-executed';
 $unsafe = "<?php\n\n\$value = json_decode('unsafe', true);\nexec('danger');\ntouch(" . var_export($unsafeMarker, true) . ");\n";
 file_put_contents($base . '/app/Actions/Unsafe.php', $unsafe);
 $analysis = $analyzer->analyze($base);
 $codes = array_column($analysis['diagnostics'], 'code');
-if ($analysis['ok'] || !in_array('JAS003', $codes, true) || !in_array('JAS010', $codes, true) || !in_array('JAS011', $codes, true)) throw new RuntimeException('project_analyzer_missed_diagnostics');
+if ($analysis['ok']
+    || !in_array('JAS003', $codes, true)
+    || !in_array('JAS010', $codes, true)
+    || !in_array('JAS011', $codes, true)
+    || !in_array('JAS031', $codes, true)
+    || !in_array('JAS032', $codes, true)
+    || !in_array('JAS040', $codes, true)
+    || !in_array('JAS050', $codes, true)) throw new RuntimeException('project_analyzer_missed_diagnostics');
 try {
     $inspector->load($base . '/app/application.php');
     throw new RuntimeException('unsafe_definition_was_loaded');
