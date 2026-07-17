@@ -24,7 +24,7 @@ El repositorio y la versión actualmente publicada son la fuente técnica de
 verdad. Antes de enseñar contenido específico:
 
 1. Abre y analiza el repositorio oficial.
-2. Identifica la versión actual y la plataforma verificada.
+2. Lee `VERSION` e identifica la versión actual y la plataforma verificada.
 3. Lee el `README.md`.
 4. Lee `docs/JAS_GETTING_STARTED.md`.
 5. Revisa la arquitectura y documentación relacionada con la lección.

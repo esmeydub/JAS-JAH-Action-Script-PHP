@@ -10,6 +10,25 @@ use Jah\JAS\Tooling\ApplicationInspector;
 use Jah\JAS\Tooling\DefinitionEditor;
 use Jah\JAS\Tooling\JasFormatter;
 
+$repository = dirname(__DIR__);
+$readme = file_get_contents($repository . '/README.md');
+$developmentProtocol = file_get_contents($repository . '/AGENTS.md');
+$learningProtocol = file_get_contents($repository . '/LEARN_JAS_WITH_SOL.md');
+if (!is_string($readme)
+    || !is_string($developmentProtocol)
+    || !is_string($learningProtocol)
+    || !str_contains($readme, '[`AGENTS.md`](AGENTS.md)')
+    || !str_contains($readme, '[`LEARN_JAS_WITH_SOL.md`](LEARN_JAS_WITH_SOL.md)')
+    || !str_contains($developmentProtocol, 'JAS Development Protocol for SOL')
+    || !str_contains($developmentProtocol, 'docs/JAS_GETTING_STARTED.md')
+    || !str_contains($developmentProtocol, 'bin/jas')
+    || !str_contains($learningProtocol, 'JAS Interactive Teacher Protocol for SOL')
+    || !str_contains($learningProtocol, 'Lee `VERSION`')
+    || !str_contains($learningProtocol, 'docs/JAS_GETTING_STARTED.md')
+    || !str_contains($learningProtocol, 'bin/jas')) {
+    throw new RuntimeException('sol_protocol_integration_missing');
+}
+
 $base = sys_get_temp_dir() . '/jas_scaffold_' . bin2hex(random_bytes(5));
 $phpstanConfig = file_get_contents(dirname(__DIR__) . '/phpstan.neon.dist');
 if (!is_string($phpstanConfig) || !str_contains($phpstanConfig, 'level: 5')

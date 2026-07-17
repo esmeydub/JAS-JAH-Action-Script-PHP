@@ -504,7 +504,7 @@ cambio futuro de estado debe actualizar simultáneamente la fase y esta tabla.
 | 4 | Completada | Backup, restauración y continuidad: `php tests/test_datacore_backup.php` |
 | 5 | Completada | Identidad y acceso institucional: `php tests/test_jas_identity.php` y `php tests/test_jas_security.php` |
 | 6 | Completada | JAS Web: `php tests/test_jas_web.php`, `php tests/test_jas_accessibility.php` y `php tests/test_jas_upload.php` |
-| 7 | Completada | Tooling y ciclo de proyecto: `php tests/test_jas_tooling.php`, `php tests/test_jas_language_engine.php`, `php tests/test_jas_project_lifecycle.php` y `php bin/jas static` |
+| 7 | Completada | Tooling y ciclo de proyecto: protocolos SOL de desarrollo y aprendizaje verificados por `php tests/test_jas_tooling.php`; motor de lenguaje: `php tests/test_jas_language_engine.php`; ciclo: `php tests/test_jas_project_lifecycle.php`; análisis: `php bin/jas static` |
 | 8 | Completada | Operación segura y calificación acelerada: `php tests/test_jas_operations_qualification.php 500`; 10,500/10,500 operaciones, integridad PASS; gate transversal: `php tests/run_all.php` |
 | 8.5 | Completada | L0–L7: protocolo, seguridad, perfiles de clientes y distribución estática firmada/reproducible: `make -C sdk/cpp/lsp test` y `tests/test_jas_lsp_distribution.sh` |
 | 9 | Pendiente | No iniciada |

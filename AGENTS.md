@@ -1,6 +1,3 @@
-AGENTS.md
-
-
 # JAS Development Protocol for SOL
 
 ## Propósito
