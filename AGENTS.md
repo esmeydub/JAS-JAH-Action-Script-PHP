@@ -227,6 +227,25 @@ Después de cada incremento:
 Utiliza los comandos reales de la versión instalada. No afirmes que una prueba
 pasó si no la ejecutaste o no recibiste evidencia de su resultado.
 
+## Diagnósticos eficientes
+
+Cuando JAS rechace una operación y exista un incidente, consulta primero:
+
+```text
+php bin/jas diagnose --last
+```
+
+Aplica únicamente la corrección autorizada indicada por el código estable y
+vuelve a ejecutar la verificación que falló. No gastes contexto intentando
+eludir contratos, capacidades, HTML seguro, organización o integridad, y nunca
+modifiques el núcleo para hacer pasar una aplicación. Antes de una entrega que
+use un núcleo sellado ejecuta `php bin/jas core:verify`.
+
+La salida de desarrollo puede utilizarse para razonar sobre la corrección. La
+salida de producción y los incidentes persistidos no deben enriquecerse con
+contraseñas, cookies, tokens, cabeceras Authorization, claves, trazas o rutas
+privadas.
+
 ## Honestidad técnica
 
 Distingue siempre entre:

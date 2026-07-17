@@ -22,11 +22,11 @@ Conserve juntos el archivo, su `.sha256` y, para una entrega firmada, `.sig` y
 `.pem`. Desde el repositorio JAS:
 
 ```sh
-sdk/cpp/lsp/verify-package.sh jas-lsp-1.3.1-linux-x86_64.tar.gz \
-  jas-lsp-1.3.1-linux-x86_64.tar.gz.sig \
-  jas-lsp-1.3.1-linux-x86_64.tar.gz.pem
-tar -xzf jas-lsp-1.3.1-linux-x86_64.tar.gz
-jas-lsp-1.3.1-linux-x86_64/install.sh "$HOME/.local"
+sdk/cpp/lsp/verify-package.sh jas-lsp-1.4.0-linux-x86_64.tar.gz \
+  jas-lsp-1.4.0-linux-x86_64.tar.gz.sig \
+  jas-lsp-1.4.0-linux-x86_64.tar.gz.pem
+tar -xzf jas-lsp-1.4.0-linux-x86_64.tar.gz
+jas-lsp-1.4.0-linux-x86_64/install.sh "$HOME/.local"
 export JAS_ROOT=/ruta/confiable/JAS-JAH-Action-Script-PHP
 ```
 
@@ -40,7 +40,7 @@ Los artefactos construidos en GitHub reciben además una atestación Sigstore
 ligada al repositorio, workflow y commit. Se verifica con:
 
 ```sh
-gh attestation verify jas-lsp-1.3.1-linux-x86_64.tar.gz \
+gh attestation verify jas-lsp-1.4.0-linux-x86_64.tar.gz \
   --repo esmeydub/JAS-JAH-Action-Script-PHP
 ```
 

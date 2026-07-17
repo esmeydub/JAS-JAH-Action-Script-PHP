@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Jah\JAS\Security;
 
+use Jah\JAS\Diagnostics\DiagnosticFactory;
 use RuntimeException;
 
 final class CapabilityPolicy
@@ -29,7 +30,7 @@ final class CapabilityPolicy
     public function assertAllowed(string $principal, string $capability): void
     {
         if (!$this->allows($principal, $capability)) {
-            throw new RuntimeException("SALK denegó {$capability} para {$principal}");
+            throw DiagnosticFactory::capabilityMissing($capability, $principal);
         }
     }
 

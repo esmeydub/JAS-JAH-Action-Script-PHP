@@ -1,6 +1,6 @@
 # JAS security and failure verification
 
-This document records the internal Phase 9 security gate for JAS 1.3.1. It is
+This document records the internal Phase 9 security gate for JAS 1.4.0. It is
 reproducible engineering evidence, not an external audit, penetration test,
 certification or guarantee that a deployment is secure.
 

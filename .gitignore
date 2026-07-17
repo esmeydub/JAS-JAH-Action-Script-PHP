@@ -1,4 +1,5 @@
 /.env
+/.jas/
 /runtime/*
 !/runtime/.gitkeep
 *.log

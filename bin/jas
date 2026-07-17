@@ -60,6 +60,19 @@ function jas_language_session_key(): string
     return $key;
 }
 
+function jas_diagnostic_store(string $root): Jah\JAS\Diagnostics\DiagnosticStore
+{
+    $configured = trim((string) getenv('JAS_DIAGNOSTICS_DIR'));
+    $directory = $configured !== '' ? $configured : $root . '/.jas/diagnostics';
+    if (!str_starts_with($directory, '/')) throw new RuntimeException('diagnostic_store_path_must_be_absolute');
+    return new Jah\JAS\Diagnostics\DiagnosticStore($directory);
+}
+
+function jas_render_diagnostic(Jah\JAS\Diagnostics\Diagnostic $diagnostic): void
+{
+    echo (new Jah\JAS\Diagnostics\AgentDiagnosticReporter())->render($diagnostic);
+}
+
 
 switch ($command) {
     case 'test':
@@ -307,6 +320,13 @@ switch ($command) {
         $report = (new Jah\JAS\Tooling\ProjectAnalyzer())->analyze((string) ($argv[2] ?? '.'));
         foreach ($report['diagnostics'] as $diagnostic) {
             echo $diagnostic['file'] . ':' . $diagnostic['line'] . ' [' . $diagnostic['code'] . '] ' . $diagnostic['message'] . "\n";
+            if (($diagnostic['code'] ?? '') === 'JAS003') {
+                $official = Jah\JAS\Diagnostics\DiagnosticFactory::strictTypesMissing(
+                    (string) $diagnostic['file'], (int) $diagnostic['line'],
+                )->diagnostic();
+                jas_diagnostic_store($root)->append($official);
+                echo 'Official diagnostic: ' . $official->code . ' incident ' . $official->id . "\n";
+            }
         }
         echo $report['ok'] ? "JAS ANALYZE: PASS ({$report['files']} files)\n" : "JAS ANALYZE: FAIL\n";
         exit($report['ok'] ? 0 : 1);
@@ -405,6 +425,52 @@ switch ($command) {
         foreach ($compatibility->warnings as $issue) echo "WARNING: {$issue}\n";
         echo $compatibility->compatible() ? "JAS COMPATIBILITY: PASS\n" : "JAS COMPATIBILITY: BREAKING\n";
         exit($compatibility->compatible() ? 0 : 1);
+    case 'diagnose':
+        $store = jas_diagnostic_store($root);
+        if (($argv[2] ?? '') === '--summary') {
+            foreach ($store->summary() as $code => $count) echo $code . '=' . $count . "\n";
+            exit(0);
+        }
+        if (($argv[2] ?? '') === '--last') {
+            $diagnostic = $store->last();
+            if ($diagnostic === null) { fwrite(STDERR, "No diagnostics found\n"); exit(1); }
+            jas_render_diagnostic($diagnostic); exit(0);
+        }
+        if (($argv[2] ?? '') === '--id') {
+            $diagnostic = $store->find((string) ($argv[3] ?? ''));
+            if ($diagnostic === null) { fwrite(STDERR, "Diagnostic not found\n"); exit(1); }
+            jas_render_diagnostic($diagnostic); exit(0);
+        }
+        if (($argv[2] ?? '') === '--code') {
+            $diagnostics = $store->byCode((string) ($argv[3] ?? ''));
+            if ($diagnostics === []) { fwrite(STDERR, "Diagnostic code not found\n"); exit(1); }
+            foreach ($diagnostics as $diagnostic) jas_render_diagnostic($diagnostic);
+            exit(0);
+        }
+        fwrite(STDERR, "Usage: php bin/jas diagnose --last|--summary|--id <incident>|--code <code>\n");
+        exit(2);
+    case 'core:seal':
+        $target = (string) ($argv[2] ?? $root);
+        $result = (new Jah\JAS\Diagnostics\CoreIntegrityGuard())->seal($target);
+        echo "JAS CORE SEALED\nFiles=" . $result['files'] . "\nManifest=" . $result['manifest'] . "\n";
+        exit(0);
+    case 'core:verify':
+        $target = (string) ($argv[2] ?? $root);
+        try {
+            $result = (new Jah\JAS\Diagnostics\CoreIntegrityGuard())->verify($target);
+        } catch (Throwable $error) {
+            fwrite(STDERR, "JAS CORE VERIFY: FAIL " . $error->getMessage() . "\n");
+            exit(1);
+        }
+        if ($result['valid']) { echo "JAS CORE VERIFY: PASS\nFiles=" . $result['files'] . "\n"; exit(0); }
+        foreach ($result['violations'] as $file => $reason) {
+            $diagnostic = jas_diagnostic_store($root)->append(
+                Jah\JAS\Diagnostics\DiagnosticFactory::coreIntegrityViolation((string) $file, (string) $reason)->diagnostic(),
+            );
+            jas_render_diagnostic($diagnostic);
+        }
+        echo "JAS CORE VERIFY: FAIL\n";
+        exit(1);
     default:
         echo "JAS CLI\n\n";
         echo "  bin/jas test          Ejecuta la suite completa\n";
@@ -435,6 +501,9 @@ switch ($command) {
         echo "  bin/jas app:docs <proyecto|application.php> <salida.md>\n";
         echo "  bin/jas app:diagram <proyecto|application.php> <salida.mmd>\n";
         echo "  bin/jas app:compat <proyecto-anterior> <proyecto-nuevo>\n";
+        echo "  bin/jas diagnose --last|--summary|--id <incidente>|--code <código>\n";
+        echo "  bin/jas core:seal [raíz]                    Sella la integridad del núcleo\n";
+        echo "  bin/jas core:verify [raíz]                  Verifica el núcleo sellado\n";
         echo "  bin/jas queue:stats    Estado de la cola persistente\n";
         echo "  bin/jas queue:recover  Recupera leases vencidos\n";
         echo "  bin/jas queue:compact  Compacta el journal de trabajos\n";

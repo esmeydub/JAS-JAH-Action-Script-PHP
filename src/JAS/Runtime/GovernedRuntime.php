@@ -11,6 +11,7 @@ use Jah\JAS\Persistence\EventJournal;
 use Jah\JAS\Persistence\AuditJournal;
 use Jah\JAS\Persistence\OutboxJournal;
 use Jah\JAS\Security\CapabilityPolicy;
+use Jah\JAS\Diagnostics\DiagnosticFactory;
 use Jah\JAS\Type\TypeRegistry;
 use Jah\DataCore\PhpSerializer;
 use RuntimeException;
@@ -48,12 +49,12 @@ final class GovernedRuntime
     public function execute(string $action, array $input, ?string $requestId = null): array
     {
         $contract = $this->application->contract($action)->describe();
-        $handler = $this->handlers[$action] ?? throw new RuntimeException('action_handler_not_registered');
+        $handler = $this->handlers[$action] ?? throw DiagnosticFactory::actionNotRegistered($action);
         $inputType = (string) $contract['input'];
         $outputType = (string) $contract['output'];
         if (!$this->types->has($inputType) || !$this->types->has($outputType)) throw new RuntimeException('action_type_not_defined');
         $this->policy->assertAllowed($this->principal, (string) $contract['capability']);
-        $this->types->assert($inputType, $input, 'input');
+        if (!$this->types->validate($inputType, $input)) throw DiagnosticFactory::typeMismatch('input', $inputType, 'contract_mismatch', $action);
         $requestId ??= bin2hex(random_bytes(16));
         $inputFingerprint = hash('sha256', PhpSerializer::encode($input));
         if (($contract['idempotent'] ?? false) === true) {
@@ -91,7 +92,7 @@ final class GovernedRuntime
         $this->wal->begin($requestId, $action, $input);
         try {
             $output = $handler($input);
-            $this->types->assert($outputType, $output, 'output');
+            if (!$this->types->validate($outputType, $output)) throw DiagnosticFactory::typeMismatch('output', $outputType, 'contract_mismatch', $action);
             $result = ['success' => true, 'result' => $output, 'request_id' => $requestId, 'action' => $action];
             $emitted = $contract['emits'] ?? null;
             $eventRecord = null;

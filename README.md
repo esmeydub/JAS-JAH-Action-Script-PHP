@@ -8,7 +8,7 @@ same boundary as the C and C++ SDKs.
 ## A secure, typed application runtime for PHP
 
 **Hackathon category:** Developer Tools
-**Status:** working prototype, JAS 1.3.1
+**Status:** working prototype, JAS 1.4.0
 **Development workflow:** Codex SOL, Medium reasoning effort
 **Build Week disclosure:** GPT-5.6 is part of the required hackathon evaluation,
 not a JAS runtime dependency
@@ -62,7 +62,7 @@ JAS turns those concerns into explicit definitions:
 | Web security | Governed router, CSRF, secure headers, rate limiting, safe HTML and forms |
 | Scale foundations | Persistent queues, leases, backpressure, workers, sharding, quorum and fencing |
 | Operations | Health probes, read-only secure panel, disk admission, retention and signed JASB telemetry export |
-| Tooling | Generators, analyzer, Language Intelligence Engine, health checks and generated documentation |
+| Tooling | Generators, analyzer, Language Intelligence Engine, stable diagnostics, core sealing, health checks and generated documentation |
 
 Development follows the phase gates in
 [`JAS_MASTER_PLAN.md`](JAS_MASTER_PLAN.md). Phases 1–8, the external standard LSP
@@ -246,6 +246,8 @@ curl -H "Authorization: Bearer $JAS_OPERATIONS_TOKEN" http://127.0.0.1/operation
 php bin/jas test
 php bin/jas make:project /tmp/jas-demo "JAS Demo"
 php bin/jas analyze /tmp/jas-demo
+php bin/jas diagnose --last
+php bin/jas core:verify
 php bin/jas audit:verify
 php bin/jas events:verify
 php benchmarks/datacore_sql.php 2000
@@ -282,6 +284,9 @@ Security architecture is documented in
 [`docs/DATACORE_DATABASE.md`](docs/DATACORE_DATABASE.md),
 [`docs/DATACORE_SQL_MIRROR.md`](docs/DATACORE_SQL_MIRROR.md) and
 [`JAS_ARCHITECTURE.md`](JAS_ARCHITECTURE.md).
+
+Human- and agent-efficient failure handling, redaction and core sealing are
+documented in [`docs/JAS_DIAGNOSTICS.md`](docs/JAS_DIAGNOSTICS.md).
 
 ## License
 

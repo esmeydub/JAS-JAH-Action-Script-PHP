@@ -324,6 +324,19 @@ Estado: **completada**
 - `app:docs` genera inventario técnico, fingerprint y diagramas Mermaid deterministas; `app:diagram` publica los grafos de dominios y contratos como artefacto independiente.
 - `app:compat` compara dos proyectos sin ejecutar sus definiciones y falla ante rupturas de tipos, acciones, eventos, prefijos, dependencias, capacidades o garantías de auditoría/idempotencia.
 - Cada proyecto nuevo incluye una guía operable y carga JAS mediante `JAS_ROOT` cuando aún no existe autoloader; una prueba end-to-end confirma creación, smoke test, documentación y compatibilidad en un proceso limpio.
+- `JAS Diagnostic Engine` convierte rechazos de HTML, contratos, acciones,
+  capacidades, rutas, strict types e integridad en códigos estables, contexto
+  sanitizado y una única corrección autorizada para humanos y agentes.
+- `.jas/diagnostics/incidents.jasb` conserva incidentes append-only sin JSON;
+  reporters separados impiden que producción exponga el contexto de desarrollo.
+- `diagnose` ofrece consulta por último incidente, ID, código y resumen mediante
+  texto determinista compacto. `core:seal` y `core:verify` detectan archivos
+  ausentes, modificados o inesperados en las fronteras selladas del motor.
+- La implementación oficial nació limpia desde el núcleo JAS; una sesión
+  exploratoria con Gemini reportada por el autor se registra sólo como el
+  descubrimiento que motivó reducir gasto de contexto, no como código heredado.
+- Pruebas negativas por código verifican contexto, HTTP, redacción, salida CLI,
+  separación desarrollo/producción e integridad: `JAS DIAGNOSTICS: PASS`.
 
 ### Alcance
 
@@ -334,6 +347,8 @@ Estado: **completada**
 - Language Intelligence Engine por CLI: diagnósticos, hover, definición, referencias y rename.
 - Documentación y diagramas generados.
 - Verificación de compatibilidad en CLI.
+- Diagnósticos estables y compactos para humanos y agentes.
+- Sellado verificable del núcleo durante desarrollo de aplicaciones.
 
 ### Criterios de salida
 
@@ -526,7 +541,7 @@ cambio futuro de estado debe actualizar simultáneamente la fase y esta tabla.
 | 4 | Completada | Backup, restauración y continuidad: `php tests/test_datacore_backup.php` |
 | 5 | Completada | Identidad y acceso institucional: `php tests/test_jas_identity.php` y `php tests/test_jas_security.php` |
 | 6 | Completada | JAS Web: `php tests/test_jas_web.php`, `php tests/test_jas_accessibility.php` y `php tests/test_jas_upload.php` |
-| 7 | Completada | Tooling y ciclo de proyecto: protocolos SOL de desarrollo y aprendizaje verificados por `php tests/test_jas_tooling.php`; motor de lenguaje: `php tests/test_jas_language_engine.php`; ciclo: `php tests/test_jas_project_lifecycle.php`; análisis: `php bin/jas static` |
+| 7 | Completada | Tooling, protocolos SOL y diagnósticos: `php tests/test_jas_tooling.php`, `php tests/test_jas_diagnostics.php`; motor de lenguaje: `php tests/test_jas_language_engine.php`; ciclo: `php tests/test_jas_project_lifecycle.php`; análisis: `php bin/jas static` |
 | 8 | Completada | Operación segura y calificación acelerada: `php tests/test_jas_operations_qualification.php 500`; 10,500/10,500 operaciones, integridad PASS; gate transversal: `php tests/run_all.php` |
 | 8.5 | Completada | L0–L7: protocolo, seguridad, perfiles de clientes y distribución estática firmada/reproducible: `make -C sdk/cpp/lsp test` y `tests/test_jas_lsp_distribution.sh` |
 | 9 | Interna completada / externa pendiente | `php tests/test_jas_phase9.php`, `php tests/run_all.php` y `docs/JAS_SECURITY_VERIFICATION.md`; revisión criptográfica y penetration test independientes aún no realizados |

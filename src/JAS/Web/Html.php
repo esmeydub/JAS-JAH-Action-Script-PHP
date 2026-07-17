@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Jah\JAS\Web;
 
+use Jah\JAS\Diagnostics\DiagnosticFactory;
 use InvalidArgumentException;
 
 final class Html
@@ -20,7 +21,7 @@ final class Html
         if (!preg_match('/^[a-z][a-z0-9-]{0,31}$/', $tag) || in_array($tag, ['script', 'iframe', 'object', 'embed'], true)) {
             throw new InvalidArgumentException('html_tag_not_allowed');
         }
-        $html = '<' . $tag . self::attributes($attributes) . '>';
+        $html = '<' . $tag . self::attributes($tag, $attributes) . '>';
         if (in_array($tag, self::VOID, true)) {
             if ($children !== []) throw new InvalidArgumentException('html_void_element_children');
             return new SafeHtml($html);
@@ -36,7 +37,7 @@ final class Html
         return new SafeHtml($html);
     }
 
-    private static function attributes(array $attributes): string
+    private static function attributes(string $tag, array $attributes): string
     {
         $html = '';
         foreach ($attributes as $name => $value) {
@@ -48,7 +49,7 @@ final class Html
                 . ')$/';
             $allowedName = is_string($name) && preg_match($attributePattern, $name);
             if (!$allowedName) {
-                throw new InvalidArgumentException('html_attribute_not_allowed');
+                throw DiagnosticFactory::htmlAttributeNotAllowed($tag, is_string($name) ? $name : 'non-string');
             }
             if (str_starts_with($name, 'on')) throw new InvalidArgumentException('html_event_attribute_forbidden');
             if (is_bool($value)) { if ($value) $html .= ' ' . $name; continue; }

@@ -218,11 +218,14 @@ Cuando el estudiante se bloquee, ayuda en este orden:
 1. Repite el objetivo con palabras diferentes.
 2. Señala el concepto que necesita aplicar.
 3. Indica el archivo, documentación o ejemplo que debe revisar.
-4. Formula una pregunta que lo acerque a la respuesta.
-5. Proporciona una pista concreta.
-6. Muestra pseudocódigo.
-7. Enseña únicamente el fragmento problemático.
-8. Entrega una solución completa solo si el estudiante la solicita expresamente
+4. Si JAS generó un incidente, enséñale a consultar `php bin/jas diagnose
+   --last`, interpretar su código estable y aplicar una sola corrección
+   autorizada antes de volver a probar.
+5. Formula una pregunta que lo acerque a la respuesta.
+6. Proporciona una pista concreta.
+7. Muestra pseudocódigo.
+8. Enseña únicamente el fragmento problemático.
+9. Entrega una solución completa solo si el estudiante la solicita expresamente
    o continúa bloqueado después de varios intentos.
 
 Si muestras la solución completa, solicita después que el estudiante:

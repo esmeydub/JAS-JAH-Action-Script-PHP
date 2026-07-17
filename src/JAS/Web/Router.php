@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Jah\JAS\Web;
 
+use Jah\JAS\Diagnostics\DiagnosticFactory;
+use Jah\JAS\Diagnostics\DiagnosticCode;
+use Jah\JAS\Diagnostics\DiagnosticException;
+use Jah\JAS\Diagnostics\ErrorBoundary;
 use Jah\JAS\Runtime\GovernedRuntime;
 use InvalidArgumentException;
 use RuntimeException;
@@ -18,7 +22,11 @@ final class Router
     /** @var list<array{prefix:string,middleware:list<Middleware>}> */
     private array $groups = [];
 
-    public function __construct(private readonly GovernedRuntime $runtime, private readonly ?Translator $translator = null) {}
+    public function __construct(
+        private readonly GovernedRuntime $runtime,
+        private readonly ?Translator $translator = null,
+        private readonly ?ErrorBoundary $errorBoundary = null,
+    ) {}
 
     /** @param list<Middleware> $middleware */
     public function route(string $method, string $path, string $action, callable $render, ?string $name = null, array $middleware = []): self
@@ -131,7 +139,10 @@ final class Router
                 $route = $candidate; break;
             }
         }
-        if ($route === null) return Response::error(404, $request->requestId, translator: $this->translator);
+        if ($route === null) {
+            return $this->errorBoundary?->handle(DiagnosticFactory::routeNotRegistered($request->method, $request->path), $request)
+                ?? Response::error(404, $request->requestId, translator: $this->translator);
+        }
         try {
             foreach ($pathInput as $key => $value) {
                 if (array_key_exists($key, $request->input) && (string) $request->input[$key] !== $value) return Response::error(400, $request->requestId, translator: $this->translator);
@@ -150,11 +161,25 @@ final class Router
                 return $response;
             };
             return $this->pipeline($route['middleware'], $execute)($request);
-        } catch (InvalidArgumentException) {
-            return Response::error(422, $request->requestId, translator: $this->translator);
-        } catch (Throwable) {
-            return Response::error(500, $request->requestId, translator: $this->translator);
+        } catch (DiagnosticException $error) {
+            return $this->errorBoundary?->handle($error, $request, ['component' => 'Router'])
+                ?? Response::error($this->diagnosticStatus($error), $request->requestId, translator: $this->translator);
+        } catch (InvalidArgumentException $error) {
+            return $this->errorBoundary?->handle($error, $request, ['component' => 'Router'])
+                ?? Response::error(422, $request->requestId, translator: $this->translator);
+        } catch (Throwable $error) {
+            return $this->errorBoundary?->handle($error, $request, ['component' => 'Router'])
+                ?? Response::error(500, $request->requestId, translator: $this->translator);
         }
+    }
+
+    private function diagnosticStatus(DiagnosticException $error): int
+    {
+        return match ($error->diagnostic()->code) {
+            DiagnosticCode::INPUT_TYPE_MISMATCH => 422,
+            DiagnosticCode::CAPABILITY_MISSING => 403,
+            default => 500,
+        };
     }
 
     /** @param list<Middleware> $middleware */
