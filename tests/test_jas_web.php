@@ -82,7 +82,7 @@ $groupGuard = new class implements Middleware {
     {
         $this->calls++;
         $response = $next($request);
-        return new Response($response->body, $response->status, $response->contentType, $response->headers + ['X-JAS-Group' => 'applied']);
+        return $response->withHeaders(['X-JAS-Group' => 'applied']);
     }
 };
 $routeGuard = new class implements Middleware {
@@ -92,7 +92,7 @@ $routeGuard = new class implements Middleware {
         $this->calls++;
         if (($request->attributes['route_template'] ?? null) !== '/api/v1/perfiles/{id}') return new Response('route_metadata_missing', 500);
         $response = $next($request);
-        return new Response($response->body, $response->status, $response->contentType, $response->headers + ['X-JAS-Route' => 'applied']);
+        return $response->withHeaders(['X-JAS-Route' => 'applied']);
     }
 };
 $groupedRouter = new Router($webRuntime);
@@ -140,6 +140,19 @@ $secureRouter = (new Router($webRuntime))
 if ($secureRouter->dispatch(new Request('POST', '/perfil', ['id' => 'USER-1']))->status !== 403) throw new RuntimeException('csrf_missing_accepted');
 $secured = $secureRouter->dispatch(new Request('POST', '/perfil', ['id' => 'USER-1', '_csrf' => $csrf], requestId: 'web-post-1'));
 if ($secured->status !== 200 || ($secured->headers['X-Frame-Options'] ?? null) !== 'DENY') throw new RuntimeException('security_middleware_failed');
+
+$streamRouter = (new Router($webRuntime))
+    ->middleware(new SecurityHeadersMiddleware())
+    ->route('GET', '/perfil-stream', 'perfil.consultar', static fn(array $profile): Response => Response::stream(
+        static function (callable $write) use ($profile): void { $write($profile['id']); },
+        'text/plain',
+    ));
+$streamedResponse = $streamRouter->dispatch(new Request('GET', '/perfil-stream', ['id' => 'USER-1']));
+$streamedBody = '';
+$streamedResponse->emit(static function (string $chunk) use (&$streamedBody): void { $streamedBody .= $chunk; });
+if (!$streamedResponse->isStreamed() || $streamedBody !== 'USER-1' || ($streamedResponse->headers['X-Frame-Options'] ?? null) !== 'DENY') {
+    throw new RuntimeException('streaming_middleware_preservation_failed');
+}
 
 $limitedRouter = (new Router($webRuntime))
     ->middleware(new RateLimitMiddleware(

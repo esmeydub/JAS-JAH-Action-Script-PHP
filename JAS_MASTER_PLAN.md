@@ -276,7 +276,10 @@ Estado: **en progreso**
 - `LocaleNegotiator` limita y analiza `Accept-Language` contra allowlist sin usar el locale como ruta; componentes y errores comparten un `Translator` con `es-MX` y `en-US` nativos.
 - `AccessibilityAudit` reporta hallazgos estructurales por criterio WCAG 2.2 y exige evidencia separada para contraste, reflow, teclado, foco, objetivos, autenticación y lector de pantalla.
 - La aplicación de referencia usa landmarks JAS y pasa la auditoría automatizada; un documento adversarial confirma detección de fallas. La evidencia manual real sigue pendiente y la fase permanece abierta.
-- Pruebas positivas y negativas de grupos, middleware, cookies, uploads, componentes, formularios, i18n y accesibilidad: PASS; `JAS ACCESSIBILITY: PASS`; `JAS I18N: PASS`; `JAS ADVANCED FORMS: PASS`; `JAS COMPONENTS: PASS`; `JAS UPLOAD CUSTODY: PASS`; suite completa: `JAS SUITE: PASS`.
+- `Response::stream()` conserva el productor a través de headers, cookies y middleware y prohíbe consumirlo dos veces.
+- `UploadVault` autoriza propietario o `UploadAccessPolicy`, prevalida custodia y transmite bajo el mismo bloqueo en bloques de hasta 64 KiB; headers de descarga y auditoría se generan de forma controlada.
+- Todo el alcance funcional de JAS Web está implementado. La fase sólo conserva abierta la evidencia manual WCAG real y su verificación final reproducible.
+- Pruebas positivas y negativas de grupos, middleware, cookies, uploads, streaming, componentes, formularios, i18n y accesibilidad: PASS; `JAS ACCESSIBILITY: PASS`; `JAS I18N: PASS`; `JAS ADVANCED FORMS: PASS`; `JAS COMPONENTS: PASS`; `JAS UPLOAD CUSTODY: PASS`; suite completa: `JAS SUITE: PASS`.
 
 ---
 

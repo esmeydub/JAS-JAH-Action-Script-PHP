@@ -27,7 +27,7 @@ final class RateLimitMiddleware implements Middleware
             return new Response('JAS_RATE_LIMITED', 429, headers: ['Retry-After' => (string) $state['retry_after']]);
         }
         $response = $next($request);
-        return new Response($response->body, $response->status, $response->contentType, $response->headers + [
+        return $response->withHeaders([
             'X-RateLimit-Limit' => (string) $this->limit,
             'X-RateLimit-Remaining' => (string) $state['remaining'],
         ]);

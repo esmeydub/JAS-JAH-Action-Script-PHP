@@ -227,6 +227,35 @@ La aplicación de referencia usa `Layout` y su estructura automatizable pasa en
 `tests/test_jas_accessibility.php`. La misma prueba contiene un documento
 adversarial para demostrar que los hallazgos no son meramente declarativos.
 
+## Streaming y descargas autorizadas
+
+`Response::stream()` recibe un productor que entrega bloques a un writer. La
+respuesta sólo puede consumirse una vez y `withHeaders()`, cookies y middleware
+conservan el productor sin convertirlo nuevamente en un body completo.
+
+`UploadVault::downloadResponse()` autoriza al propietario antes de devolver 200.
+Una política institucional opcional implementa `UploadAccessPolicy` para casos
+como auditoría o custodia delegada; no existe un bypass booleano en la llamada.
+
+```php
+$response = $vault->downloadResponse(
+    $uploadId,
+    $identityId,
+    $requestId,
+);
+```
+
+Antes de emitir el primer byte, la bóveda abre el artefacto con bloqueo
+compartido y verifica todos los bloques, su autenticidad, orden, cantidad,
+tamaño y SHA-256. Manteniendo el mismo bloqueo, vuelve al inicio y descifra en
+bloques máximos de 64 KiB hacia la salida. Esto evita cargar el archivo completo
+en RAM y evita entregar parcialmente un artefacto que ya estaba corrupto.
+
+La respuesta incluye longitud, MIME real, `nosniff`, cache privada sin
+almacenamiento, ranges deshabilitados y `Content-Disposition` con fallback ASCII
+más `filename*` UTF-8. El nombre original nunca se usa como ruta. Preparación,
+finalización, rechazo y fallos de streaming quedan en `AuditJournal`.
+
 El HTML se construye con componentes y se escapa por defecto. `SafeHtml` representa
 marcado producido por JAS; los valores de usuario siempre se pasan como hijos o
 atributos normales para que sean escapados.

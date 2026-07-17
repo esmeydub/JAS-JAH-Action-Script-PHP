@@ -21,6 +21,6 @@ final class TraceMiddleware implements Middleware
             'status' => $response->status, 'duration_ms' => $duration,
             'user_id' => $request->attributes['identity']['id'] ?? null,
         ]);
-        return new Response($response->body, $response->status, $response->contentType, $response->headers + ['X-JAS-Request-ID' => $requestId]);
+        return $response->withHeaders(['X-JAS-Request-ID' => $requestId]);
     }
 }

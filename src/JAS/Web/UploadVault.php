@@ -26,6 +26,7 @@ final class UploadVault
         string $documentRoot,
         private readonly string $pepper,
         private readonly UploadScanner $scanner,
+        private readonly ?UploadAccessPolicy $accessPolicy = null,
     ) {
         if (strlen($pepper) < 32) throw new RuntimeException('upload_pepper_invalid');
         if (!is_dir($documentRoot)) throw new RuntimeException('upload_document_root_invalid');
@@ -110,21 +111,69 @@ final class UploadVault
         $this->identifier($principalId, 'upload_principal_invalid');
         $this->requestId($requestId);
         try {
-            $metadata = $this->database->find(self::COLLECTION, $id);
-            if (!is_array($metadata) || ($metadata['status'] ?? null) !== 'active'
-                || !hash_equals((string) ($metadata['owner_lookup'] ?? ''), $this->lookup($principalId))) {
-                throw new RuntimeException('upload_access_denied');
-            }
-            $bytes = $this->decryptFile($this->path($id), $id, (int) $metadata['chunks']);
-            if (strlen($bytes) !== (int) $metadata['size'] || !hash_equals((string) $metadata['sha256'], hash('sha256', $bytes))) {
-                throw new RuntimeException('upload_custody_invalid');
-            }
+            $metadata = $this->authorizedMetadata($id, $principalId);
+            $bytes = '';
+            $this->withCustodyHandle($id, function ($handle) use (&$bytes, $metadata, $id): void {
+                $this->transfer($handle, $id, $metadata, static function (string $chunk) use (&$bytes): void { $bytes .= $chunk; });
+            });
             $this->record($principalId, 'web.upload.read', $requestId, ['id' => $id, 'sha256' => $metadata['sha256']], true);
             return $bytes;
         } catch (Throwable $exception) {
             $this->record($principalId, 'web.upload.read', $requestId, ['id' => $id], false, $this->errorCode($exception));
             throw $exception;
         }
+    }
+
+    /** @param callable(string):void $writer */
+    public function stream(string $id, string $principalId, string $requestId, callable $writer): void
+    {
+        $this->identifier($id, 'upload_id_invalid');
+        $this->identifier($principalId, 'upload_principal_invalid');
+        $this->requestId($requestId);
+        try {
+            $metadata = $this->authorizedMetadata($id, $principalId);
+            $this->streamVerified($id, $metadata, $writer);
+            $this->record($principalId, 'web.upload.stream', $requestId, ['id' => $id, 'sha256' => $metadata['sha256'], 'size' => $metadata['size']], true);
+        } catch (Throwable $exception) {
+            $this->record($principalId, 'web.upload.stream', $requestId, ['id' => $id], false, $this->errorCode($exception));
+            throw $exception;
+        }
+    }
+
+    public function downloadResponse(string $id, string $principalId, string $requestId): Response
+    {
+        $this->identifier($id, 'upload_id_invalid');
+        $this->identifier($principalId, 'upload_principal_invalid');
+        $this->requestId($requestId);
+        try {
+            $metadata = $this->authorizedMetadata($id, $principalId);
+            $this->withCustodyHandle($id, function ($handle) use ($id, $metadata): void { $this->transfer($handle, $id, $metadata); });
+            $this->record($principalId, 'web.upload.download.prepare', $requestId, ['id' => $id, 'sha256' => $metadata['sha256']], true);
+        } catch (Throwable $exception) {
+            $this->record($principalId, 'web.upload.download.prepare', $requestId, ['id' => $id], false, $this->errorCode($exception));
+            throw $exception;
+        }
+        $disposition = $this->contentDisposition((string) $metadata['original_name']);
+        return Response::stream(
+            function (callable $writer) use ($id, $principalId, $requestId, $metadata): void {
+                try {
+                    $this->streamVerified($id, $metadata, $writer);
+                    $this->record($principalId, 'web.upload.download.complete', $requestId, ['id' => $id, 'sha256' => $metadata['sha256'], 'size' => $metadata['size']], true);
+                } catch (Throwable $exception) {
+                    $this->record($principalId, 'web.upload.download.complete', $requestId, ['id' => $id], false, $this->errorCode($exception));
+                    throw $exception;
+                }
+            },
+            (string) $metadata['mime'],
+            headers: [
+                'Content-Length' => (string) $metadata['size'],
+                'Content-Disposition' => $disposition,
+                'X-Content-Type-Options' => 'nosniff',
+                'Cache-Control' => 'private, no-store',
+                'Accept-Ranges' => 'none',
+                'X-JAS-Content-SHA256' => (string) $metadata['sha256'],
+            ],
+        );
     }
 
     /** @return array{size:int,sha256:string,mime:string} */
@@ -189,30 +238,76 @@ final class UploadVault
         }
     }
 
-    private function decryptFile(string $path, string $id, int $expectedChunks): string
+    private function authorizedMetadata(string $id, string $principalId): array
     {
-        $handle = fopen($path, 'rb');
-        if ($handle === false || $expectedChunks < 1) throw new RuntimeException('upload_custody_invalid');
-        $bytes = '';
+        $metadata = $this->database->find(self::COLLECTION, $id);
+        if (!is_array($metadata) || ($metadata['status'] ?? null) !== 'active') throw new RuntimeException('upload_access_denied');
+        $owner = hash_equals((string) ($metadata['owner_lookup'] ?? ''), $this->lookup($principalId));
+        $delegated = !$owner && $this->accessPolicy !== null && $this->accessPolicy->canDownload($principalId, $metadata);
+        if (!$owner && !$delegated) throw new RuntimeException('upload_access_denied');
+        return $metadata;
+    }
+
+    /** @param callable(string):void|null $writer */
+    private function transfer($handle, string $id, array $metadata, ?callable $writer = null): void
+    {
+        $expectedChunks = (int) ($metadata['chunks'] ?? 0);
+        if (!is_resource($handle) || $expectedChunks < 1) throw new RuntimeException('upload_custody_invalid');
         $index = 0;
-        try {
-            while (($line = fgets($handle, 262_144)) !== false) {
+        $size = 0;
+        $hash = hash_init('sha256');
+        while (($line = fgets($handle, 262_144)) !== false) {
+            try {
                 if (!str_ends_with($line, "\n")) throw new RuntimeException('upload_custody_invalid');
                 $entry = PhpSerializer::decode(rtrim($line, "\r\n"));
                 if (!is_array($entry) || ($entry['index'] ?? null) !== $index
                     || !is_string($entry['key_id'] ?? null) || !is_string($entry['ciphertext'] ?? null)) {
                     throw new RuntimeException('upload_custody_invalid');
                 }
-                $bytes .= $this->keys->decrypt('jas.web.upload.' . $id . '.' . $index, $entry['key_id'], $entry['ciphertext']);
-                $index++;
+                $chunk = $this->keys->decrypt('jas.web.upload.' . $id . '.' . $index, $entry['key_id'], $entry['ciphertext']);
+            } catch (Throwable) {
+                throw new RuntimeException('upload_custody_invalid');
             }
-        } catch (Throwable) {
-            throw new RuntimeException('upload_custody_invalid');
-        } finally {
-            fclose($handle);
+            $size += strlen($chunk);
+            if ($size > (int) ($metadata['size'] ?? 0)) throw new RuntimeException('upload_custody_invalid');
+            hash_update($hash, $chunk);
+            if ($writer !== null) $writer($chunk);
+            $index++;
         }
-        if ($index !== $expectedChunks) throw new RuntimeException('upload_custody_invalid');
-        return $bytes;
+        if ($index !== $expectedChunks || $size !== (int) ($metadata['size'] ?? -1)
+            || !hash_equals((string) ($metadata['sha256'] ?? ''), hash_final($hash))) {
+            throw new RuntimeException('upload_custody_invalid');
+        }
+    }
+
+    private function withCustodyHandle(string $id, callable $operation): mixed
+    {
+        $handle = fopen($this->path($id), 'rb');
+        if ($handle === false || !flock($handle, LOCK_SH)) {
+            if (is_resource($handle)) fclose($handle);
+            throw new RuntimeException('upload_custody_invalid');
+        }
+        try { return $operation($handle); }
+        finally { flock($handle, LOCK_UN); fclose($handle); }
+    }
+
+    /** @param callable(string):void $writer */
+    private function streamVerified(string $id, array $metadata, callable $writer): void
+    {
+        $this->withCustodyHandle($id, function ($handle) use ($id, $metadata, $writer): void {
+            $this->transfer($handle, $id, $metadata);
+            if (fseek($handle, 0) !== 0) throw new RuntimeException('upload_custody_invalid');
+            $this->transfer($handle, $id, $metadata, $writer);
+        });
+    }
+
+    private function contentDisposition(string $originalName): string
+    {
+        $fallback = preg_replace('/[^A-Za-z0-9._-]+/', '_', $originalName) ?? '';
+        $fallback = trim($fallback, '._-');
+        if ($fallback === '') $fallback = 'download';
+        $fallback = substr($fallback, 0, 120);
+        return 'attachment; filename="' . $fallback . '"; filename*=UTF-8\'\'' . rawurlencode($originalName);
     }
 
     private function assertKnownSignature(string $path, string $mime): void
