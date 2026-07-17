@@ -59,8 +59,8 @@ JAS turns those concerns into explicit definitions:
 | Tooling | Project/domain/type/action generators, analyzer, health checks and generated documentation |
 
 Development follows the phase gates in
-[`JAS_MASTER_PLAN.md`](JAS_MASTER_PLAN.md). Phases 1–5 are complete; the complete
-JAS Web experience is the active phase.
+[`JAS_MASTER_PLAN.md`](JAS_MASTER_PLAN.md). Phases 1–6 are complete; developer
+tooling and experience is the active phase.
 
 ## Architecture
 

@@ -235,7 +235,7 @@ Estado: **completada**
 
 ## Fase 6 — JAS Web completo
 
-Estado: **en progreso**
+Estado: **completada**
 
 ### Alcance
 
@@ -275,10 +275,13 @@ Estado: **en progreso**
 - `TranslationCatalog` valida claves, placeholders y parámetros tipados; catálogos secundarios conservan el esquema del fallback y pueden ser parciales.
 - `LocaleNegotiator` limita y analiza `Accept-Language` contra allowlist sin usar el locale como ruta; componentes y errores comparten un `Translator` con `es-MX` y `en-US` nativos.
 - `AccessibilityAudit` reporta hallazgos estructurales por criterio WCAG 2.2 y exige evidencia separada para contraste, reflow, teclado, foco, objetivos, autenticación y lector de pantalla.
-- La aplicación de referencia usa landmarks JAS y pasa la auditoría automatizada; un documento adversarial confirma detección de fallas. La evidencia manual real sigue pendiente y la fase permanece abierta.
+- La aplicación de referencia usa landmarks JAS y pasa la auditoría automatizada; un documento adversarial confirma detección de fallas.
 - `Response::stream()` conserva el productor a través de headers, cookies y middleware y prohíbe consumirlo dos veces.
 - `UploadVault` autoriza propietario o `UploadAccessPolicy`, prevalida custodia y transmite bajo el mismo bloqueo en bloques de hasta 64 KiB; headers de descarga y auditoría se generan de forma controlada.
-- Todo el alcance funcional de JAS Web está implementado. La fase sólo conserva abierta la evidencia manual WCAG real y su verificación final reproducible.
+- `Router::dispatchGlobals()` encapsula el borde HTTP: entradas malformadas reciben 400 y fallos inesperados 500, siempre con headers seguros y sin exponer excepciones.
+- La revisión real en Chromium 149 y Orca 50.1.2/AT-SPI verifica contraste, reflow a 320 CSS px, teclado, foco visible y no oculto, objetivos y semántica anunciada. El caso de autenticación es no aplicable porque la referencia es pública y de solo lectura.
+- Resultados, entorno, limitaciones, extracto sanitizado de lector de pantalla y huellas SHA-256 están conservados en `docs/JAS_WEB_ACCESSIBILITY_EVIDENCE.md`.
+- Todo el alcance funcional y los criterios de salida de JAS Web están implementados y verificados.
 - Pruebas positivas y negativas de grupos, middleware, cookies, uploads, streaming, componentes, formularios, i18n y accesibilidad: PASS; `JAS ACCESSIBILITY: PASS`; `JAS I18N: PASS`; `JAS ADVANCED FORMS: PASS`; `JAS COMPONENTS: PASS`; `JAS UPLOAD CUSTODY: PASS`; suite completa: `JAS SUITE: PASS`.
 
 ---

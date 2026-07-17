@@ -66,6 +66,24 @@ $response = $router->dispatch(new Request('GET', '/perfil', ['id' => 'USER-1'], 
 if ($response->status !== 200 || !str_contains($response->body, '&lt;Ciudadano&gt;')) throw new RuntimeException('secure_route_failed');
 if ($router->dispatch(new Request('GET', '/missing'))->status !== 404) throw new RuntimeException('route_not_found_failed');
 if ($router->dispatch(new Request('GET', '/perfil', ['id' => 'bad id']))->status !== 422) throw new RuntimeException('route_type_validation_failed');
+$serverBeforeGlobalDispatch = $_SERVER;
+$getBeforeGlobalDispatch = $_GET;
+try {
+    $_SERVER['REQUEST_METHOD'] = 'GET';
+    $_SERVER['REQUEST_URI'] = '/.well-known/appspecific/com.chrome.devtools.json';
+    $_SERVER['CONTENT_LENGTH'] = '0';
+    $_GET = [];
+    $invalidGlobal = $router->dispatchGlobals();
+    if ($invalidGlobal->status !== 400 || ($invalidGlobal->headers['X-Content-Type-Options'] ?? null) !== 'nosniff') {
+        throw new RuntimeException('invalid_global_request_not_safely_rejected');
+    }
+    if (str_contains($invalidGlobal->body, 'http_path_invalid') || str_contains($invalidGlobal->body, 'Stack trace')) {
+        throw new RuntimeException('invalid_global_request_leaked_details');
+    }
+} finally {
+    $_SERVER = $serverBeforeGlobalDispatch;
+    $_GET = $getBeforeGlobalDispatch;
+}
 $dynamicRouter = (new Router($webRuntime))->route(
     'GET', '/perfiles/{id}', 'perfil.consultar',
     static fn(array $profile, array $result, Request $request): Response => new Response($profile['id'] . ':' . $request->input['id']),

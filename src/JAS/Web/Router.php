@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Jah\JAS\Web;
 
 use Jah\JAS\Runtime\GovernedRuntime;
+use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
 
@@ -106,6 +107,17 @@ final class Router
         return $this->pipeline($this->middleware, $core)($request);
     }
 
+    public function dispatchGlobals(int $maxBytes = 1_048_576): Response
+    {
+        try {
+            return $this->dispatch(Request::fromGlobals($maxBytes));
+        } catch (InvalidArgumentException) {
+            return SecurityHeadersMiddleware::secure(Response::error(400, translator: $this->translator));
+        } catch (Throwable) {
+            return SecurityHeadersMiddleware::secure(Response::error(500, translator: $this->translator));
+        }
+    }
+
     private function dispatchRoute(Request $request): Response
     {
         $route = $this->routes[$request->method . ' ' . $request->path] ?? null;
@@ -138,7 +150,7 @@ final class Router
                 return $response;
             };
             return $this->pipeline($route['middleware'], $execute)($request);
-        } catch (\InvalidArgumentException) {
+        } catch (InvalidArgumentException) {
             return Response::error(422, $request->requestId, translator: $this->translator);
         } catch (Throwable) {
             return Response::error(500, $request->requestId, translator: $this->translator);

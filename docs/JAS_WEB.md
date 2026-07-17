@@ -10,6 +10,11 @@ $router = (new Router($runtime))
     ->middleware(new RateLimitMiddleware($store, $identityResolver));
 ```
 
+El front controller termina con `$router->dispatchGlobals()->send()`. Este
+punto de entrada convierte métodos, rutas o payloads HTTP inválidos en una
+respuesta 400 con headers seguros; una excepción inesperada se reduce a una
+respuesta 500 sin traza ni detalles internos.
+
 Las rutas relacionadas se organizan con prefijos y middleware heredable. Los
 grupos pueden anidarse y el middleware de una ruta no se filtra hacia rutas
 hermanas:
@@ -225,7 +230,10 @@ prueba en el sistema institucional correspondiente.
 
 La aplicación de referencia usa `Layout` y su estructura automatizable pasa en
 `tests/test_jas_accessibility.php`. La misma prueba contiene un documento
-adversarial para demostrar que los hallazgos no son meramente declarativos.
+adversarial para demostrar que los hallazgos no son meramente declarativos. La
+revisión real en Chromium y Orca/AT-SPI, sus límites y sus resultados por
+criterio se conservan en
+[`JAS_WEB_ACCESSIBILITY_EVIDENCE.md`](JAS_WEB_ACCESSIBILITY_EVIDENCE.md).
 
 ## Streaming y descargas autorizadas
 

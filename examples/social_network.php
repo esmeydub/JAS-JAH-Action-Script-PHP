@@ -7,7 +7,6 @@ require dirname(__DIR__) . '/app/bootstrap.php';
 use Jah\JAS\Jas;
 use Jah\JAS\Web\Html;
 use Jah\JAS\Web\Page;
-use Jah\JAS\Web\Request;
 use Jah\JAS\Web\Response;
 use Jah\JAS\Web\Router;
 use Jah\JAS\Web\SecurityHeadersMiddleware;
@@ -49,4 +48,4 @@ $router = (new Router($runtime))
         return Response::html(new Page('Publicación JAS', $layout));
     });
 
-$router->dispatch(Request::fromGlobals())->send();
+$router->dispatchGlobals()->send();

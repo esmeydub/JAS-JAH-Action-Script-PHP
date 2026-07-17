@@ -8,7 +8,11 @@ final class SecurityHeadersMiddleware implements Middleware
 {
     public function process(Request $request, callable $next): Response
     {
-        $response = $next($request);
+        return self::secure($next($request));
+    }
+
+    public static function secure(Response $response): Response
+    {
         return $response->withHeaders([
             'Content-Security-Policy' => "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
             'X-Content-Type-Options' => 'nosniff',
