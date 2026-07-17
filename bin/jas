@@ -41,6 +41,25 @@ function jas_operations_evidence(string $root): Jah\JAS\Observability\SustainedO
     );
 }
 
+function jas_language_session_key(): string
+{
+    $descriptor = filter_var(getenv('JAS_LANGUAGE_KEY_FD'), FILTER_VALIDATE_INT);
+    if (!is_int($descriptor) || $descriptor < 3 || $descriptor > 1_024) {
+        throw new RuntimeException('JAS_LANGUAGE_KEY_FD must identify an inherited descriptor');
+    }
+    $stream = @fopen('php://fd/' . $descriptor, 'rb');
+    if ($stream === false) throw new RuntimeException('language_session_key_descriptor_invalid');
+    $key = '';
+    try {
+        while (strlen($key) < 32) {
+            $chunk = fread($stream, 32 - strlen($key));
+            if ($chunk === false || $chunk === '') throw new RuntimeException('language_session_key_truncated');
+            $key .= $chunk;
+        }
+    } finally { fclose($stream); }
+    return $key;
+}
+
 
 switch ($command) {
     case 'test':
@@ -325,6 +344,24 @@ switch ($command) {
         );
         jas_print($result);
         exit(0);
+    case 'language:serve':
+        if (($argv[2] ?? '') !== '--stdio' || !isset($argv[3]) || isset($argv[4])) {
+            fwrite(STDERR, "Usage: php bin/jas language:serve --stdio <workspace>\n");
+            exit(2);
+        }
+        try {
+            $workspace = realpath((string) $argv[3]);
+            if ($workspace === false || !is_dir($workspace)) throw new RuntimeException('language_workspace_invalid');
+            $protocol = new Jah\JAS\Protocol\LanguageProtocolCodec(
+                new Jah\JAS\Protocol\JasBinaryCodec(new Jah\JAS\Security\SalkPacketGuard(jas_language_session_key())),
+            );
+            $service = new Jah\JAS\Tooling\LanguageBinaryService($protocol, $workspace);
+            set_time_limit(0);
+            exit((new Jah\JAS\Tooling\LanguageStdioServer($service))->serve(STDIN, STDOUT));
+        } catch (Throwable) {
+            fwrite(STDERR, "JAS language service could not start\n");
+            exit(2);
+        }
     case 'static':
         $configuredPhpStan = trim((string) getenv('JAS_PHPSTAN'));
         $phpstan = $configuredPhpStan === '' ? false : realpath($configuredPhpStan);
@@ -392,6 +429,7 @@ switch ($command) {
         echo "  bin/jas language:definition <proyecto> <archivo> <línea> <columna>\n";
         echo "  bin/jas language:references <proyecto> <archivo> <línea> <columna>\n";
         echo "  bin/jas language:rename <proyecto> <archivo> <línea> <columna> <nombre> [--apply]\n";
+        echo "  bin/jas language:serve --stdio <proyecto>       Servicio binario JASB para bridge externo\n";
         echo "  bin/jas static                                Ejecuta PHPStan sobre JAS y DataCore\n";
         echo "  bin/jas app:validate <application.php>         Valida contratos de producción\n";
         echo "  bin/jas app:docs <proyecto|application.php> <salida.md>\n";

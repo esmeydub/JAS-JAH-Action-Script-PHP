@@ -139,7 +139,7 @@ final class LanguageMessage
             }
         }
         if (isset($body['changes'])) {
-            if ($body['changes'] === []) throw new RuntimeException('language_message_field_invalid');
+            if (count($body['changes']) !== 1) throw new RuntimeException('language_message_field_invalid');
             foreach ($body['changes'] as $change) {
                 if (!is_array($change) || array_keys($change) !== ['text'] || !is_string($change['text'])
                     || strlen($change['text']) > 4_194_304 || preg_match('//u', $change['text']) !== 1) {

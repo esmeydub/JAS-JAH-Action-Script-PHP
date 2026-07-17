@@ -42,6 +42,12 @@ haya hecho.
 - propone cambios; nunca los aplica en una llamada LSP;
 - no carga ni ejecuta los archivos PHP analizados.
 
+El proceso se inicia como `php bin/jas language:serve --stdio <workspace>`. La
+clave SALK de 32 bytes debe llegar por el descriptor heredado indicado en
+`JAS_LANGUAGE_KEY_FD`; no se acepta por argv, archivo de proyecto ni variable de
+entorno con el secreto. stdout queda reservado exclusivamente para frames y los
+errores de arranque se redactan en stderr.
+
 ## Contrato binario L0
 
 Los opcodes 600–691 están reservados para el servicio de lenguaje. El payload
@@ -92,11 +98,12 @@ implementar posiciones y rangos Unicode en L1.
 
 ## Supuestos y pendientes explícitos
 
-- La clave efímera por descriptor heredado se implementará junto con el servicio
-  y el bridge; hoy sólo existe el contrato firmado reusable de JASB.
+- El servicio PHP ya lee la clave efímera por descriptor heredado; falta que el
+  bridge L3 cree el pipe, entregue exactamente 32 bytes y cierre su extremo.
 - `DocumentStore` y la conversión UTF-16 están implementados; sincronización
   incremental por rangos permanece deshabilitada hasta una ampliación posterior.
-- El proceso `language:serve`, lifecycle y multiplexación son L2/L3.
+- `language:serve` y lifecycle binario están implementados; spawn y multiplexación
+  con JSON-RPC pertenecen al bridge L3.
 - La validación C actual comprueba framing TLV y límites estructurales; el bridge
   añadirá UTF-8 estricto, nombres de campo y semántica antes de publicar binarios.
 - No hay certificación externa. Fuzzing, sandbox por sistema operativo, revisión

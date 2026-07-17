@@ -1,6 +1,6 @@
 # Plan normativo del servidor LSP de JAS
 
-Estado: **en progreso; L0–L1 completadas, L2 es la siguiente acción**
+Estado: **en progreso; L0–L2 completadas, L3 es la siguiente acción**
 
 ## Objetivo y frontera inmutable
 
@@ -53,7 +53,7 @@ overlays, archivos nuevos y diagnósticos sin guardar sin modificar el disco.
 
 ## Fase L2 — Servicio binario PHP
 
-Estado: **pendiente; siguiente acción obligatoria**
+Estado: **completada**
 
 Crear `php bin/jas language:serve --stdio` para:
 
@@ -64,9 +64,15 @@ Crear `php bin/jas language:serve --stdio` para:
 - emitir notificaciones binarias de diagnósticos;
 - no ejecutar definiciones PHP, comandos o shell.
 
-Cierre: cliente binario obtiene todas las capacidades sobre archivos guardados y no guardados.
+Cierre verificado: `LanguageBinaryService` aplica lifecycle, sesión, replay,
+reloj, codificación negociada y despacho semántico. `LanguageStdioServer` procesa
+frames acotados; `bin/jas language:serve --stdio` exige clave SALK mediante
+descriptor heredado. Un cliente binario obtiene diagnósticos, hover, definición,
+referencias y plan de rename sobre documentos guardados/no guardados.
 
 ## Fase L3 — Bridge externo C++
+
+Estado: **pendiente; siguiente acción obligatoria**
 
 - Implementar dos pares de pipes: editor ⇄ C++ y C++ ⇄ PHP.
 - Leer `Content-Length` exactamente y soportar frames parciales/consecutivos.

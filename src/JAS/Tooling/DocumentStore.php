@@ -75,6 +75,32 @@ final class DocumentStore
         return $this->documents[$identity['path']] ?? null;
     }
 
+    public function source(string $uri): string
+    {
+        $identity = $this->identity($uri);
+        if (isset($this->documents[$identity['path']])) return $this->documents[$identity['path']]['content'];
+        $source = @file_get_contents($identity['path']);
+        if (!is_string($source) || strlen($source) > $this->maximumDocumentBytes || preg_match('//u', $source) !== 1) {
+            throw new RuntimeException('language_document_read_failed');
+        }
+        return $source;
+    }
+
+    public function relative(string $uri): string { return $this->identity($uri)['relative']; }
+
+    public function uriForRelative(string $relative): string
+    {
+        if ($relative === '' || str_contains($relative, "\0") || str_contains($relative, '..') || str_starts_with($relative, '/')) {
+            throw new RuntimeException('language_document_path_invalid');
+        }
+        $path = $this->workspace . '/' . $relative;
+        return $this->identity('file://' . str_replace('%2F', '/', rawurlencode($path)))['uri'];
+    }
+
+    public function sourceForRelative(string $relative): string { return $this->source($this->uriForRelative($relative)); }
+
+    public function workspace(): string { return $this->workspace; }
+
     /** @return array<string,string> relative path => content */
     public function sourcesFor(string $workspace): array
     {
