@@ -7,6 +7,8 @@ require dirname(__DIR__) . '/app/bootstrap.php';
 use Jah\JAS\Tooling\ProjectScaffolder;
 use Jah\JAS\Tooling\ProjectAnalyzer;
 use Jah\JAS\Tooling\ApplicationInspector;
+use Jah\JAS\Tooling\DefinitionEditor;
+use Jah\JAS\Tooling\JasFormatter;
 
 $base = sys_get_temp_dir() . '/jas_scaffold_' . bin2hex(random_bytes(5));
 $tool = new ProjectScaffolder();
@@ -26,6 +28,32 @@ $generatedManifest = $generatedApplication->describe();
 if (!isset($generatedManifest['contracts']['tramite.crear']) || !isset($generatedManifest['events']['tramite.creado@1'])) {
     throw new RuntimeException('generated_definitions_not_connected');
 }
+$tool->domain($base, 'Identidad', 'identidad');
+$tool->type($base, 'TramiteCreado');
+$editor = new DefinitionEditor();
+$fieldUpdate = $editor->addTypeField($base, 'NuevoTramite', 'descripcion?', 'string');
+if (!$fieldUpdate['changed'] || !isset($fieldUpdate['definition']['fields']['descripcion?'])) throw new RuntimeException('type_safe_update_failed');
+$dependencyUpdate = $editor->addDomainDependency($base, 'Tramites', 'Identidad');
+if (!$dependencyUpdate['changed'] || $dependencyUpdate['definition']['dependencies'] !== ['Identidad']) throw new RuntimeException('domain_safe_update_failed');
+try {
+    $editor->addDomainDependency($base, 'Identidad', 'Tramites');
+    throw new RuntimeException('domain_cycle_was_written');
+} catch (RuntimeException $error) {
+    if ($error->getMessage() !== 'definition_domain_dependency_cycle') throw $error;
+}
+$actionUpdate = $editor->configureAction($base, 'tramite.crear', 'NuevoTramite', 'TramiteCreado', 'tramites.create');
+if (!$actionUpdate['changed'] || $actionUpdate['definition']['output'] !== 'TramiteCreado') throw new RuntimeException('action_safe_update_failed');
+$updatedApplication = require $base . '/app/application.php';
+$updatedApplication->validate();
+if (($updatedApplication->describe()['contracts']['tramite.crear']['capability'] ?? null) !== 'tramites.create') throw new RuntimeException('updated_contract_not_loaded');
+$compactType = "<?php declare(strict_types=1); return ['name'=>'TramiteCreado','fields'=>['id'=>'identifier'],'strict'=>true];\n";
+file_put_contents($base . '/app/Types/TramiteCreado.php', $compactType);
+$formatter = new JasFormatter();
+$formatCheck = $formatter->format($base, false);
+if ($formatCheck['ok'] || !in_array('app/Types/TramiteCreado.php', $formatCheck['changed'], true)) throw new RuntimeException('formatter_check_missed_change');
+if (file_get_contents($base . '/app/Types/TramiteCreado.php') !== $compactType) throw new RuntimeException('formatter_check_modified_file');
+$formatApply = $formatter->format($base, true);
+if ($formatApply['changed'] === [] || !$formatter->format($base, false)['ok']) throw new RuntimeException('formatter_not_idempotent');
 try { $tool->type($base, 'NuevoTramite'); throw new RuntimeException('generator_overwrote_file'); }
 catch (RuntimeException $e) { if ($e->getMessage() !== 'scaffold_file_exists') throw $e; }
 $analyzer = new ProjectAnalyzer();

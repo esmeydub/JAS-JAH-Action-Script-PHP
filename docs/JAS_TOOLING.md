@@ -23,6 +23,28 @@ No existe manifiesto JSON ni edición textual frágil de `application.php`:
 agregar una definición es una creación exclusiva y el cargador vuelve a validar
 el grafo completo.
 
+## Actualización y formato seguros
+
+```bash
+bin/jas type:add-field apps/portal NuevoTramite descripcion? string
+bin/jas domain:add-dependency apps/portal Tramites Identidad
+bin/jas action:configure apps/portal tramite.crear NuevoTramite TramiteCreado tramites.create
+bin/jas format apps/portal
+bin/jas format apps/portal --check
+```
+
+`DefinitionEditor` sólo localiza nombres validados dentro de las carpetas de
+definición, rechaza enlaces simbólicos y comprueba referencias antes de editar.
+`PhpDefinitionStore` vuelve a leer bajo un bloqueo exclusivo, escribe un archivo
+temporal en el mismo directorio, fuerza el contenido a disco, lo relee con el
+parser seguro y finalmente hace un reemplazo atómico. Un fallo deja intacta la
+definición anterior.
+
+El formateador oficial normaliza exclusivamente definiciones JAS; nunca intenta
+reescribir controladores o PHP arbitrario. Primero analiza todos los archivos y
+después aplica cambios. `--check` no escribe y devuelve código distinto de cero
+cuando CI encuentra una definición fuera del formato canónico.
+
 ## Análisis
 
 ```bash

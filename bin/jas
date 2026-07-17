@@ -152,6 +152,37 @@ switch ($command) {
             isset($argv[7]) ? (string) $argv[7] : null,
         );
         echo "Created {$file}\n"; exit(0);
+    case 'type:add-field':
+        $result = (new Jah\JAS\Tooling\DefinitionEditor())->addTypeField(
+            (string) ($argv[2] ?? ''),
+            (string) ($argv[3] ?? ''),
+            (string) ($argv[4] ?? ''),
+            (string) ($argv[5] ?? ''),
+        );
+        echo "Type updated: {$result['hash']}\n"; exit(0);
+    case 'domain:add-dependency':
+        $result = (new Jah\JAS\Tooling\DefinitionEditor())->addDomainDependency(
+            (string) ($argv[2] ?? ''),
+            (string) ($argv[3] ?? ''),
+            (string) ($argv[4] ?? ''),
+        );
+        echo "Domain updated: {$result['hash']}\n"; exit(0);
+    case 'action:configure':
+        $result = (new Jah\JAS\Tooling\DefinitionEditor())->configureAction(
+            (string) ($argv[2] ?? ''),
+            (string) ($argv[3] ?? ''),
+            (string) ($argv[4] ?? ''),
+            (string) ($argv[5] ?? ''),
+            (string) ($argv[6] ?? ''),
+        );
+        echo "Action updated: {$result['hash']}\n"; exit(0);
+    case 'format':
+        $check = in_array('--check', $argv, true);
+        $report = (new Jah\JAS\Tooling\JasFormatter())->format((string) ($argv[2] ?? '.'), !$check);
+        foreach ($report['changed'] as $file) echo ($check ? 'Needs format: ' : 'Formatted: ') . $file . "\n";
+        if ($check && !$report['ok']) { echo "JAS FORMAT: FAIL\n"; exit(1); }
+        echo "JAS FORMAT: PASS ({$report['checked']} definitions)\n";
+        exit(0);
     case 'analyze':
         $report = (new Jah\JAS\Tooling\ProjectAnalyzer())->analyze((string) ($argv[2] ?? '.'));
         foreach ($report['diagnostics'] as $diagnostic) {
@@ -183,6 +214,10 @@ switch ($command) {
         echo "  bin/jas make:type <proyecto> <Nombre>\n";
         echo "  bin/jas make:event <proyecto> <Dominio> <evento.nombre> <Payload> [version]\n";
         echo "  bin/jas make:action <proyecto> <Dominio> <accion.nombre> [Entrada] [Salida] [capacidad]\n";
+        echo "  bin/jas type:add-field <proyecto> <Tipo> <campo> <descriptor>\n";
+        echo "  bin/jas domain:add-dependency <proyecto> <Dominio> <Dependencia>\n";
+        echo "  bin/jas action:configure <proyecto> <accion> <Entrada> <Salida> <capacidad>\n";
+        echo "  bin/jas format <proyecto> [--check]          Formatea definiciones JAS\n";
         echo "  bin/jas analyze <proyecto>                    Analiza organización y seguridad\n";
         echo "  bin/jas app:validate <application.php>         Valida contratos de producción\n";
         echo "  bin/jas app:docs <application.php> <salida>    Genera documentación técnica\n";
