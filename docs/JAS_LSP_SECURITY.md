@@ -1,7 +1,8 @@
 # Frontera de seguridad del servidor de lenguaje JAS
 
-Estado: L0–L4 completadas; bridge, lifecycle, capacidades, aislamiento, timeout,
-cancelación y backpressure verificados. Rename negociado, interoperabilidad y distribución siguen
+Estado: L0–L5 completadas; bridge, lifecycle, capacidades, aislamiento, timeout,
+cancelación, backpressure y rename negociado verificados. El hardening L6,
+interoperabilidad y distribución siguen
 abiertas; JAS todavía no se presenta como servidor LSP terminado.
 
 ## Procesos y zonas de confianza
@@ -122,6 +123,9 @@ implementar posiciones y rangos Unicode en L1.
 - `$/cancelRequest` sólo puede marcar un ID activo; nunca produce un opcode ni
   ejecuta una orden en PHP. La respuesta posterior se sustituye por `-32800` y
   la operación interna permanece limitada por el timeout fail-closed.
+- `RenameFile`, versiones y anotaciones se emiten únicamente tras negociación
+  explícita. Las rutas proceden del plan JASB validado por PHP; el bridge no
+  acepta rutas de rename elegidas por el editor ni aplica el `WorkspaceEdit`.
 - PHP se ejecuta con paths canónicos, argv fijo, entorno vacío, FDs mínimos,
   umask 077, core dumps deshabilitados y `no_new_privs`; stderr va a un sumidero
   acotado para que un error no filtre rutas, secretos o contenido al editor.

@@ -399,7 +399,7 @@ Estado: **completada**
 
 ## Puerta 8.5 — LSP estándar externo
 
-Estado: **en progreso; L0–L4 completadas, L5 es la siguiente acción**
+Estado: **en progreso; L0–L5 completadas, L6 es la siguiente acción**
 
 Después de cerrar la Fase 8 se ejecutará íntegramente `JAS_LSP_PLAN.md`. El
 editor hablará LSP/JSON-RPC únicamente con `jas-lsp-bridge` externo en C++; el
@@ -431,6 +431,7 @@ ni incorporarán el bridge como dependencia del núcleo.
 - La prueba de frontera rechaza método ejecutable, framing byte a byte, Content-Length excesivo, ruta inválida y ambigüedad de claves sin ejecutar comandos ni filtrar secretos. ASan/UBSan pasa en el entorno disponible con detección de fugas deshabilitada porque LeakSanitizer no funciona bajo el aislamiento del runner.
 - L3 cerrada: deadline fijo de 15 segundos por request, lectura parcial también acotada y prueba compilada a 200 ms que termina un backend PHP deliberadamente bloqueado. El timeout no puede ser ampliado por el editor ni por variables de entorno.
 - L4 cerrada: el cliente JSON-RPC real valida didOpen/didChange/didClose, diagnósticos, hover, definición, referencias, prepareRename, rename sin escritura, shutdown/exit y cancelación `-32800`. La presión de 257 requests demuestra backpressure `-32000` al superar el máximo de 256.
+- L5 cerrada: clientes legados reciben `changes`; clientes modernos reciben `TextDocumentEdit` versionado, `RenameFile` y anotaciones sólo si las anuncian. La simulación del editor aplica y revierte el rename recuperando los hashes originales; el bridge nunca escribe.
 
 No se iniciará la Fase 9 hasta cerrar esta puerta y registrar evidencia.
 
@@ -498,7 +499,7 @@ cambio futuro de estado debe actualizar simultáneamente la fase y esta tabla.
 | 6 | Completada | JAS Web: `php tests/test_jas_web.php`, `php tests/test_jas_accessibility.php` y `php tests/test_jas_upload.php` |
 | 7 | Completada | Tooling y ciclo de proyecto: `php tests/test_jas_tooling.php`, `php tests/test_jas_language_engine.php`, `php tests/test_jas_project_lifecycle.php` y `php bin/jas static` |
 | 8 | Completada | Operación segura y calificación acelerada: `php tests/test_jas_operations_qualification.php 500`; 10,500/10,500 operaciones, integridad PASS; gate transversal: `php tests/run_all.php` |
-| 8.5 | En progreso | L0–L4 completas; capacidades estándar, cancelación y backpressure PASS; L5 rename negociado es la siguiente: `make -C sdk/cpp/lsp test` |
+| 8.5 | En progreso | L0–L5 completas; WorkspaceEdit negociado y rollback PASS; L6 seguridad/resiliencia es la siguiente: `make -C sdk/cpp/lsp test` |
 | 9 | Pendiente | No iniciada |
 | 10 | Pendiente | No iniciada |
 
@@ -507,14 +508,14 @@ registrado es `JAS SUITE: PASS`.
 
 ## Próxima acción obligatoria
 
-Implementar L5: `WorkspaceEdit` negociado con `documentChanges`, versiones y
-`RenameFile`, conservando fallback `changes` sin escritura del servidor. No
-iniciar la Fase 9 antes de cerrar el plan.
+Completar L6: rate limiting temporal, sandbox sin red y fuzzing prolongado del
+framing/JSON/JASB/lifecycle, conservando la frontera PHP pura. No iniciar la
+Fase 9 antes de cerrar el plan.
 
 ## Resumen de trabajo restante
 
 - Fases 1–8: completadas.
-- Puerta 8.5: L0–L4 completadas; L5–L7 pendientes según `JAS_LSP_PLAN.md`.
+- Puerta 8.5: L0–L5 completadas; L6–L7 pendientes según `JAS_LSP_PLAN.md`.
 - Fase 9: pendiente completa; incluye fallos, red, rotación bajo carga, threat
   model y revisiones externas. La revisión criptográfica y el penetration test
   requieren especialistas independientes y no pueden autodeclararse.

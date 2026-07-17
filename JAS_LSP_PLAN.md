@@ -1,6 +1,6 @@
 # Plan normativo del servidor LSP de JAS
 
-Estado: **en progreso; L0–L4 completadas, L5 es la siguiente acción**
+Estado: **en progreso; L0–L5 completadas, L6 es la siguiente acción**
 
 ## Objetivo y frontera inmutable
 
@@ -131,6 +131,8 @@ Ninguna operación LSP escribe o renombra archivos por sí misma.
 
 ## Fase L5 — Rename transaccional para el editor
 
+Estado: **completada**
+
 - Responder con `WorkspaceEdit`, nunca aplicar desde el servidor.
 - Incluir `TextDocumentEdit` versionado y `RenameFile` sólo si el cliente anuncia `documentChanges` y `resourceOperations`.
 - Añadir anotaciones únicamente cuando el cliente las soporte.
@@ -138,6 +140,16 @@ Ninguna operación LSP escribe o renombra archivos por sí misma.
 - Mantener el comando CLI `--apply` separado del protocolo LSP.
 
 Cierre: un rename soportado actualiza referencias y archivo mediante una operación reversible del editor.
+
+Cierre verificado: el bridge conserva `changes` para clientes legados. Si el
+cliente anuncia `documentChanges`, agrupa `TextDocumentEdit` por URI e incluye
+la versión abierta o `null` para archivos de disco. `RenameFile` sólo aparece
+cuando `resourceOperations` contiene `rename`; las anotaciones sólo aparecen
+con `changeAnnotationSupport`. Versiones contradictorias se rechazan. La prueba
+simula la aplicación del editor, verifica referencias y archivo renombrado,
+revierte toda la operación y recupera exactamente los hashes iniciales. El
+bridge no escribe durante ninguna respuesta y el CLI `--apply` permanece
+separado de LSP.
 
 ## Fase L6 — Seguridad y resiliencia
 

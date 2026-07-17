@@ -31,6 +31,8 @@ invalid_content="<?php\\ndeclare(strict_types=1);\\nreturn ['name' => ;\\n"
 line_text="return ['domain' => 'Tramites', 'name' => 'tramite.crear', 'input' => 'NuevoTramite', 'output' => 'NuevoTramite', 'capability' => 'tramites.create', 'audit' => true];"
 character=$(printf '%s\n' "$line_text" | awk '{ print index($0, "NuevoTramite") - 1 }')
 before_hash=$(sha256sum "$workspace/app/Types/NuevoTramite.php")
+before_action_hash=$(sha256sum "$workspace/app/Actions/TramiteCrear.php")
+before_event_hash=$(sha256sum "$workspace/app/Events/TramiteCreadoV1.php")
 
 frame() {
     printf 'Content-Length: %s\r\n\r\n%s' "${#1}" "$1"
@@ -79,4 +81,51 @@ grep -q '"id":8,"result":null' "$output"
 after_hash=$(sha256sum "$workspace/app/Types/NuevoTramite.php")
 test "$before_hash" = "$after_hash"
 test ! -e "$workspace/app/Types/SolicitudTramite.php"
+
+# Cliente moderno: ediciones versionadas, RenameFile y anotaciones negociadas.
+initialize_advanced=$(printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"processId":null,"rootUri":"%s","capabilities":{"general":{"positionEncodings":["utf-16"]},"workspace":{"workspaceEdit":{"documentChanges":true,"resourceOperations":["create","rename","delete"],"changeAnnotationSupport":{"groupsOnLabel":true}}}}}}' "$uri")
+{
+    frame "$initialize_advanced"; frame "$initialized"; frame "$did_open"
+    frame "$rename"; frame "$shutdown"; frame "$exit_message"
+} > "$input"
+"$bridge" "$(command -v php)" "$root/bin/jas" "$workspace" < "$input" > "$output" 2> "$error"
+test ! -s "$error"
+grep -q '"id":6,"result":{"documentChanges":' "$output"
+grep -q "\"textDocument\":{\"uri\":\"$action_uri\",\"version\":1}" "$output"
+grep -q "\"textDocument\":{\"uri\":\"$type_uri\",\"version\":null}" "$output"
+grep -q '"kind":"rename"' "$output"
+grep -q "\"oldUri\":\"$type_uri\"" "$output"
+grep -q '"newUri":"file://.*/app/Types/SolicitudTramite.php"' "$output"
+grep -q '"annotationId":"jas.rename"' "$output"
+grep -q '"changeAnnotations":{"jas.rename":' "$output"
+! grep -q '"result":{"changes":' "$output"
+
+# Simula aplicación y rollback del editor; el servidor nunca toca estos archivos.
+sed -i 's/NuevoTramite/SolicitudTramite/g' "$workspace/app/Actions/TramiteCrear.php" "$workspace/app/Events/TramiteCreadoV1.php" "$workspace/app/Types/NuevoTramite.php"
+mv "$workspace/app/Types/NuevoTramite.php" "$workspace/app/Types/SolicitudTramite.php"
+grep -q 'SolicitudTramite' "$workspace/app/Actions/TramiteCrear.php"
+grep -q 'SolicitudTramite' "$workspace/app/Events/TramiteCreadoV1.php"
+grep -q 'SolicitudTramite' "$workspace/app/Types/SolicitudTramite.php"
+test ! -e "$workspace/app/Types/NuevoTramite.php"
+mv "$workspace/app/Types/SolicitudTramite.php" "$workspace/app/Types/NuevoTramite.php"
+sed -i 's/SolicitudTramite/NuevoTramite/g' "$workspace/app/Actions/TramiteCrear.php" "$workspace/app/Events/TramiteCreadoV1.php" "$workspace/app/Types/NuevoTramite.php"
+test "$before_hash" = "$(sha256sum "$workspace/app/Types/NuevoTramite.php")"
+test "$before_action_hash" = "$(sha256sum "$workspace/app/Actions/TramiteCrear.php")"
+test "$before_event_hash" = "$(sha256sum "$workspace/app/Events/TramiteCreadoV1.php")"
+
+# documentChanges sin permiso resourceOperations nunca incluye RenameFile.
+initialize_text_only=$(printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"processId":null,"rootUri":"%s","capabilities":{"workspace":{"workspaceEdit":{"documentChanges":true,"resourceOperations":["create","delete"]}}}}}' "$uri")
+{
+    frame "$initialize_text_only"; frame "$initialized"; frame "$did_open"
+    frame "$rename"; frame "$shutdown"; frame "$exit_message"
+} > "$input"
+"$bridge" "$(command -v php)" "$root/bin/jas" "$workspace" < "$input" > "$output" 2> "$error"
+test ! -s "$error"
+grep -q '"id":6,"result":{"documentChanges":' "$output"
+! grep -q '"kind":"rename"\|"annotationId"\|"changeAnnotations"' "$output"
+after_hash=$(sha256sum "$workspace/app/Types/NuevoTramite.php")
+test "$before_hash" = "$after_hash"
+test ! -e "$workspace/app/Types/SolicitudTramite.php"
 printf '%s\n' 'JAS LSP STANDARD CAPABILITIES: PASS'
+printf '%s\n' 'JAS LSP NEGOTIATED WORKSPACE EDIT: PASS'
+printf '%s\n' 'JAS LSP REVERSIBLE EDITOR RENAME: PASS'
