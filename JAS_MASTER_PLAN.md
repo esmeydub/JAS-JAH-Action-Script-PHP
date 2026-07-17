@@ -288,7 +288,13 @@ Estado: **completada**
 
 ## Fase 7 — Herramientas y experiencia de desarrollo
 
-Estado: **pendiente**
+Estado: **en progreso**
+
+### Avance verificado
+
+- Los proyectos generados cargan definiciones PHP aisladas por orden determinista, sin JSON ni reescritura frágil de un archivo central.
+- Tipos, dominios, eventos y acciones generados quedan conectados al `JasApplication`; `PhpDefinitionReader` interpreta sólo arrays literales sin ejecutar los archivos, los esquemas inesperados fallan cerrados y la validación de producción comprueba el grafo completo.
+- `make:event` genera eventos versionados y `make:action` acepta entrada, salida y capacidad explícitas; la inferencia sólo se permite cuando existe un único tipo inequívoco.
 
 ### Alcance
 

@@ -16,7 +16,7 @@ final class ProjectAnalyzer
         $root = realpath($project);
         if ($root === false || !is_dir($root)) throw new RuntimeException('analyzer_project_invalid');
         $diagnostics = []; $files = 0;
-        foreach (['app/Actions', 'app/Domains', 'app/Types', 'app/Web', 'config', 'public', 'tests'] as $required) {
+        foreach (['app/Actions', 'app/Domains', 'app/Events', 'app/Types', 'app/Web', 'config', 'public', 'tests'] as $required) {
             if (!is_dir($root . '/' . $required)) $diagnostics[] = $this->diagnostic('JAS001', $required, 1, 'Required project directory is missing');
         }
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));

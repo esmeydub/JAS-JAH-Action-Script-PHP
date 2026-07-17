@@ -133,8 +133,24 @@ switch ($command) {
     case 'make:type':
         $file = (new Jah\JAS\Tooling\ProjectScaffolder())->type((string) ($argv[2] ?? ''), (string) ($argv[3] ?? ''));
         echo "Created {$file}\n"; exit(0);
+    case 'make:event':
+        $file = (new Jah\JAS\Tooling\ProjectScaffolder())->event(
+            (string) ($argv[2] ?? ''),
+            (string) ($argv[3] ?? ''),
+            (string) ($argv[4] ?? ''),
+            (string) ($argv[5] ?? ''),
+            (int) ($argv[6] ?? 1),
+        );
+        echo "Created {$file}\n"; exit(0);
     case 'make:action':
-        $file = (new Jah\JAS\Tooling\ProjectScaffolder())->action((string) ($argv[2] ?? ''), (string) ($argv[3] ?? ''), (string) ($argv[4] ?? ''));
+        $file = (new Jah\JAS\Tooling\ProjectScaffolder())->action(
+            (string) ($argv[2] ?? ''),
+            (string) ($argv[3] ?? ''),
+            (string) ($argv[4] ?? ''),
+            isset($argv[5]) ? (string) $argv[5] : null,
+            isset($argv[6]) ? (string) $argv[6] : null,
+            isset($argv[7]) ? (string) $argv[7] : null,
+        );
         echo "Created {$file}\n"; exit(0);
     case 'analyze':
         $report = (new Jah\JAS\Tooling\ProjectAnalyzer())->analyze((string) ($argv[2] ?? '.'));
@@ -165,7 +181,8 @@ switch ($command) {
         echo "  bin/jas make:project <dir> <nombre>          Crea una aplicación organizada\n";
         echo "  bin/jas make:domain <proyecto> <Nombre> <prefijo>\n";
         echo "  bin/jas make:type <proyecto> <Nombre>\n";
-        echo "  bin/jas make:action <proyecto> <Dominio> <accion.nombre>\n";
+        echo "  bin/jas make:event <proyecto> <Dominio> <evento.nombre> <Payload> [version]\n";
+        echo "  bin/jas make:action <proyecto> <Dominio> <accion.nombre> [Entrada] [Salida] [capacidad]\n";
         echo "  bin/jas analyze <proyecto>                    Analiza organización y seguridad\n";
         echo "  bin/jas app:validate <application.php>         Valida contratos de producción\n";
         echo "  bin/jas app:docs <application.php> <salida>    Genera documentación técnica\n";
