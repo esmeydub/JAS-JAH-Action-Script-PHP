@@ -73,11 +73,18 @@ final class DualControlStore
             $entry = PhpSerializer::decode($line);
             if (!is_array($entry) || !isset($entry['id'], $entry['type'])) throw new RuntimeException('dual_control_corrupt');
             $id = (string) $entry['id'];
-            if ($entry['type'] === 'REQUESTED') $state[$id] = $entry + ['status' => 'pending'];
-            elseif ($entry['type'] === 'APPROVED' && isset($state[$id])) $state[$id] = $state[$id] + ['approver_id' => $entry['approver_id'], 'approved_at' => $entry['at']];
-            elseif ($entry['type'] === 'CONSUMED' && isset($state[$id])) $state[$id]['consumed_at'] = $entry['at'];
-            if ($entry['type'] === 'APPROVED' && isset($state[$id])) $state[$id]['status'] = 'approved';
-            if ($entry['type'] === 'CONSUMED' && isset($state[$id])) $state[$id]['status'] = 'consumed';
+            if ($entry['type'] === 'REQUESTED') {
+                $state[$id] = $entry + ['status' => 'pending'];
+                continue;
+            }
+            if (!isset($state[$id])) continue;
+            if ($entry['type'] === 'APPROVED') {
+                $state[$id] = $state[$id] + ['approver_id' => $entry['approver_id'], 'approved_at' => $entry['at']];
+                $state[$id]['status'] = 'approved';
+            } elseif ($entry['type'] === 'CONSUMED') {
+                $state[$id]['consumed_at'] = $entry['at'];
+                $state[$id]['status'] = 'consumed';
+            }
         }
         return $state;
     }

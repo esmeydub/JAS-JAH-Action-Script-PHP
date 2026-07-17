@@ -100,6 +100,7 @@ final class SecureCookieJar
             'int' => is_int($value) ? (string) $value : throw new RuntimeException('cookie_value_type_invalid'),
             'positive-int' => is_int($value) && $value > 0 ? (string) $value : throw new RuntimeException('cookie_value_type_invalid'),
             'bool' => is_bool($value) ? ($value ? '1' : '0') : throw new RuntimeException('cookie_value_type_invalid'),
+            default => throw new RuntimeException('cookie_definition_type_invalid'),
         };
     }
 
@@ -112,6 +113,7 @@ final class SecureCookieJar
             'int' => preg_match('/^-?(?:0|[1-9][0-9]*)$/', $value) === 1 ? (int) $value : throw new RuntimeException('secure_cookie_invalid'),
             'positive-int' => preg_match('/^[1-9][0-9]*$/', $value) === 1 ? (int) $value : throw new RuntimeException('secure_cookie_invalid'),
             'bool' => match ($value) { '1' => true, '0' => false, default => throw new RuntimeException('secure_cookie_invalid') },
+            default => throw new RuntimeException('cookie_definition_type_invalid'),
         };
     }
 

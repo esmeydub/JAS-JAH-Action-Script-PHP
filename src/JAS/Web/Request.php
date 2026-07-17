@@ -35,6 +35,6 @@ final class Request
             if (str_starts_with($key, 'HTTP_') && is_scalar($value)) $headers[strtolower(str_replace('_', '-', substr($key, 5)))] = (string) $value;
         }
         $requestId = trim((string) ($headers['x-jas-request-id'] ?? '')) ?: null;
-        return new self($method, $path, is_array($input) ? $input : [], $headers, $requestId);
+        return new self($method, $path, $input, $headers, $requestId);
     }
 }

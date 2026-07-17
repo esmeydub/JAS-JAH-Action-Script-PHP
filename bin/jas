@@ -190,6 +190,18 @@ switch ($command) {
         }
         echo $report['ok'] ? "JAS ANALYZE: PASS ({$report['files']} files)\n" : "JAS ANALYZE: FAIL\n";
         exit($report['ok'] ? 0 : 1);
+    case 'static':
+        $phpstan = $root . '/vendor/bin/phpstan';
+        if (!is_file($phpstan)) {
+            fwrite(STDERR, "PHPStan is not installed. Run: composer install\n");
+            exit(2);
+        }
+        $staticCommand = escapeshellarg(PHP_BINARY)
+            . ' ' . escapeshellarg($phpstan)
+            . ' analyse -c ' . escapeshellarg($root . '/phpstan.neon.dist')
+            . ' --no-progress --debug';
+        passthru($staticCommand, $code);
+        exit($code);
     case 'app:validate':
         $app = (new Jah\JAS\Tooling\ApplicationInspector())->load((string) ($argv[2] ?? ''));
         $manifest = $app->describe();
@@ -219,6 +231,7 @@ switch ($command) {
         echo "  bin/jas action:configure <proyecto> <accion> <Entrada> <Salida> <capacidad>\n";
         echo "  bin/jas format <proyecto> [--check]          Formatea definiciones JAS\n";
         echo "  bin/jas analyze <proyecto>                    Analiza organización y seguridad\n";
+        echo "  bin/jas static                                Ejecuta PHPStan sobre JAS y DataCore\n";
         echo "  bin/jas app:validate <application.php>         Valida contratos de producción\n";
         echo "  bin/jas app:docs <application.php> <salida>    Genera documentación técnica\n";
         echo "  bin/jas queue:stats    Estado de la cola persistente\n";

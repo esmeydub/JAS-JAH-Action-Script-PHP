@@ -35,7 +35,7 @@ final class StorageAgent
             'id' => $id,
             'collection' => $collection,
             'payload' => $doc,
-            'ts' => $doc['_ts'] ?? time(),
+            'ts' => $doc['_ts'],
             'hash' => $payloadHash,
         ]) . "\n";
 

@@ -75,7 +75,7 @@ final class FrameProtocol
             }
             if ($chunk === '') {
                 $metadata = stream_get_meta_data($stream);
-                if (($metadata['timed_out'] ?? false) === true) {
+                if ($metadata['timed_out'] === true) {
                     throw new RuntimeException('frame_read_timeout');
                 }
                 usleep(1_000);

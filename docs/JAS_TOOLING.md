@@ -66,3 +66,26 @@ Además, `analyze` reconstruye y valida el grafo completo con el lector literal
 seguro. Un tipo ausente, una acción fuera del prefijo de su dominio, un evento
 inválido o un ciclo de dependencias hace fallar CI sin ejecutar las definiciones.
 Los diagnósticos semánticos estables son `JAS030`–`JAS050`.
+
+## PHPStan y CI
+
+```bash
+composer install
+php bin/jas static
+composer verify
+```
+
+`phpstan.neon.dist` analiza todo `src/JAS` y `src/DataCore` en nivel 5, sin
+baseline ni exclusiones. `treatPhpDocTypesAsCertain` está desactivado porque las
+APIs públicas vuelven a comprobar valores recibidos aunque exista documentación
+de tipos; los tipos nativos siguen siendo estrictos. La versión de desarrollo
+parte de PHPStan 2.1.56 y acepta actualizaciones compatibles de la rama 2.x.
+
+El análisis se ejecuta en modo determinista de un solo proceso. Así también puede
+operar en contenedores y entornos gubernamentales restringidos que impiden abrir
+puertos locales durante la verificación.
+
+El workflow ejecuta PHPStan y la suite en PHP 8.2 y 8.4. Las acciones externas
+están fijadas por SHA completo, los permisos del token se reducen a lectura y
+las dependencias se instalan desde `composer.lock`. Un error estático, un
+contrato roto o una prueba fallida bloquea CI; no se genera baseline automática.

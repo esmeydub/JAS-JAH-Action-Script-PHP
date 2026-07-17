@@ -299,6 +299,7 @@ Estado: **en progreso**
 - El formateador oficial produce una representación canónica de las definiciones y ofrece `--check` no mutante para CI; PHP de aplicación queda fuera de su superficie de reescritura.
 - El analizador indexa símbolos `App\\`, comprueba rutas PSR-4, resuelve imports internos y rechaza flujos entre `App\\Domains\\<Dominio>` cuando la dependencia no está declarada.
 - `analyze` reconstruye el grafo de producción mediante el lector literal seguro, por lo que contratos, tipos, eventos o dependencias rotos hacen fallar CI sin ejecutar definiciones.
+- PHPStan 2.x está integrado en nivel 5 para todo `src/JAS` y `src/DataCore`, sin baseline; el workflow usa acciones fijadas por SHA y valida PHP 8.2/8.4 antes de aceptar cambios.
 
 ### Alcance
 

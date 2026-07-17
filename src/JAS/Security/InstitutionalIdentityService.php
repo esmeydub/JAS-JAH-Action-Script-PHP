@@ -14,7 +14,7 @@ final class InstitutionalIdentityService implements AuthorizationProvider
 {
     private const MAX_SESSION_TTL = 86_400;
     private const MAX_DELEGATION_TTL = 2_592_000;
-    /** @var callable():int|float */
+    /** @var callable(): (int|float) */
     private mixed $clock;
 
     public function __construct(

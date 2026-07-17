@@ -123,7 +123,7 @@ final class AccessibilityAudit
     {
         preg_match_all('/<!doctype[^>]*>|<!--.*?-->|<\/?[a-z][^>]*>/is', $html, $matches, PREG_OFFSET_CAPTURE);
         $nodes = []; $stack = []; $cursor = 0; $error = null;
-        foreach ($matches[0] ?? [] as [$token, $position]) {
+        foreach ($matches[0] as [$token, $position]) {
             $text = substr($html, $cursor, $position - $cursor);
             if ($text !== '') foreach ($stack as $open) $nodes[$open]['text'] .= html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $cursor = $position + strlen($token);

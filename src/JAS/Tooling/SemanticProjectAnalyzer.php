@@ -38,7 +38,8 @@ final class SemanticProjectAnalyzer
             }
         }
 
-        $dependencies = $this->domainDependencies($root, $diagnostics);
+        [$dependencies, $domainDiagnostics] = $this->domainDependencies($root);
+        array_push($diagnostics, ...$domainDiagnostics);
         foreach ($symbols as $name => $symbol) {
             if (!str_starts_with($name, 'App\\')) continue;
             $expected = 'app/' . str_replace('\\', '/', substr($name, 4)) . '.php';
@@ -66,10 +67,11 @@ final class SemanticProjectAnalyzer
         return $diagnostics;
     }
 
-    /** @param list<array{code:string,file:string,line:int,message:string}> $diagnostics @return array<string,list<string>> */
-    private function domainDependencies(string $root, array &$diagnostics): array
+    /** @return array{array<string,list<string>>,list<array{code:string,file:string,line:int,message:string}>} */
+    private function domainDependencies(string $root): array
     {
         $dependencies = [];
+        $diagnostics = [];
         $reader = new PhpDefinitionReader();
         foreach (glob($root . '/app/Domains/*.php') ?: [] as $file) {
             try {
@@ -81,7 +83,7 @@ final class SemanticProjectAnalyzer
                 $diagnostics[] = $this->diagnostic('JAS050', $relative, 1, 'Invalid domain definition: ' . $error->getMessage());
             }
         }
-        return $dependencies;
+        return [$dependencies, $diagnostics];
     }
 
     private function domainFromFile(string $file): ?string

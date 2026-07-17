@@ -74,7 +74,7 @@ final class ProjectScaffolder
             $input ??= $inferred;
             $output ??= $inferred;
         }
-        foreach ([$input, $output] as $type) if (!is_string($type) || !preg_match('/^[A-Z][A-Za-z0-9_]{1,127}$/', $type)) throw new RuntimeException('scaffold_action_type_invalid');
+        foreach ([$input, $output] as $type) if (!preg_match('/^[A-Z][A-Za-z0-9_]{1,127}$/', $type)) throw new RuntimeException('scaffold_action_type_invalid');
         $capability ??= $name;
         if (!preg_match('/^[a-z][a-z0-9_.:*\-]{2,255}$/', $capability)) throw new RuntimeException('scaffold_action_capability_invalid');
         $file = str_replace(' ', '', ucwords(str_replace(['.', ':', '-'], ' ', $name))) . '.php';

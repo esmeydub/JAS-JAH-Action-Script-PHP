@@ -45,6 +45,9 @@ final class DefinitionEditor
             if (!isset($candidate['name'], $candidate['dependencies']) || !is_string($candidate['name']) || !is_array($candidate['dependencies'])) {
                 throw new RuntimeException('generated_domain_invalid');
             }
+            foreach ($candidate['dependencies'] as $declaredDependency) {
+                if (!is_string($declaredDependency)) throw new RuntimeException('generated_domain_invalid');
+            }
             $graph[$candidate['name']] = $candidate['dependencies'];
         }
         if (!array_key_exists($domain, $graph) || !array_key_exists($dependency, $graph)) throw new RuntimeException('definition_not_found');
@@ -114,7 +117,6 @@ final class DefinitionEditor
             if (!array_key_exists($domain, $graph)) throw new RuntimeException('definition_domain_dependency_not_found');
             $visiting[$domain] = true;
             foreach ($graph[$domain] as $dependency) {
-                if (!is_string($dependency)) throw new RuntimeException('generated_domain_invalid');
                 $visit($dependency);
             }
             unset($visiting[$domain]);

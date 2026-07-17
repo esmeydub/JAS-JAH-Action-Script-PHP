@@ -87,7 +87,9 @@ final class Form implements Component
             $id = 'jas-field-' . $name;
             $errorId = $id . '-error';
             $control = $this->controls[$name] ?? null;
-            $inputType = $control?->kind ?? (in_array($expression, ['int', 'integer', 'positive-int', 'non-negative-int', 'number', 'float'], true) ? 'number' : 'text');
+            $inputType = $control === null
+                ? (in_array($expression, ['int', 'integer', 'positive-int', 'non-negative-int', 'number', 'float'], true) ? 'number' : 'text')
+                : $control->kind;
             $attributes = [
                 'id' => $id,
                 'name' => $control?->multiple ? $name . '[]' : $name,
@@ -110,7 +112,10 @@ final class Form implements Component
                 $attributes['type'] = $inputType;
                 if ($control?->kind !== 'file') $attributes['value'] = (string) ($this->values[$name] ?? '');
                 if ($control?->kind === 'date') { $attributes['min'] = $control->minimum; $attributes['max'] = $control->maximum; }
-                if ($control?->kind === 'file') $attributes['accept'] = implode(',', $control->uploadPolicy?->allowedMimeTypes ?? []);
+                if ($control?->kind === 'file') {
+                    if ($control->uploadPolicy === null) throw new InvalidArgumentException('form_control_upload_policy_missing');
+                    $attributes['accept'] = implode(',', $control->uploadPolicy->allowedMimeTypes);
+                }
                 $fieldControl = Html::element('input', $attributes);
             }
             $children[] = Html::element('div', ['class' => 'jas-field'],

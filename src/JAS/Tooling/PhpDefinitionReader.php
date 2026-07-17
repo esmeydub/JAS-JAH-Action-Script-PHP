@@ -76,7 +76,8 @@ final class PhpDefinitionReader
             }
             if ($this->peek()['kind'] !== ',') break;
             $this->position++;
-            if ($this->peek()['kind'] === ']') break;
+            $next = $this->tokens[$this->position] ?? throw new RuntimeException('generated_definition_truncated');
+            if ($next['kind'] === ']') break;
         }
         $this->take(']');
         return $result;

@@ -40,7 +40,7 @@ final class Router
         if (isset($this->routes[$key])) throw new RuntimeException('http_route_already_defined');
         foreach ($this->routes as $route) if ($name !== null && $route['name'] === $name) throw new RuntimeException('http_route_name_duplicated');
         preg_match_all('/\{([a-z_][a-z0-9_]*)\}/i', $path, $matches);
-        $params = $matches[1] ?? [];
+        $params = $matches[1];
         if (count($params) !== count(array_unique($params))) throw new RuntimeException('http_route_parameter_duplicated');
         $regex = preg_replace('/\\\{[a-z_][a-z0-9_]*\\\}/i', '([^/]+)', preg_quote($path, '#')) ?? '';
         $this->routes[$key] = [

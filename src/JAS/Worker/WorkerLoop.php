@@ -27,7 +27,7 @@ final class WorkerLoop
     {
         $this->running = true;
         $processed = 0;
-        while ($this->running && ($maxJobs === null || $processed < $maxJobs)) {
+        while ($this->shouldContinue() && ($maxJobs === null || $processed < $maxJobs)) {
             $this->worker->lastHeartbeat = time();
             $job = $this->queue->lease($this->worker->id, $this->worker->capabilities, $this->leaseSeconds);
             if ($job === null) {
@@ -60,4 +60,6 @@ final class WorkerLoop
     }
 
     public function stop(): void { $this->running = false; }
+
+    private function shouldContinue(): bool { return $this->running; }
 }

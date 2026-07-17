@@ -38,7 +38,7 @@ final class TcpClusterClient
             $this->frames->write($socket, $payload);
             $reply = $this->frames->read($socket);
             $meta = stream_get_meta_data($socket);
-            if (($meta['timed_out'] ?? false) === true) {
+            if ($meta['timed_out'] === true) {
                 throw new RuntimeException('cluster_request_timeout');
             }
             return $reply;

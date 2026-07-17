@@ -8,7 +8,7 @@ use RuntimeException;
 
 final class LocaleNegotiator
 {
-    /** @param list<string> $allowed */
+    /** @param array $allowed */
     public function __construct(private readonly array $allowed, private readonly string $fallback)
     {
         if (!array_is_list($allowed) || $allowed === [] || count($allowed) > 32 || !in_array($fallback, $allowed, true)) {

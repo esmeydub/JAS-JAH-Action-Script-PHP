@@ -11,6 +11,11 @@ use Jah\JAS\Tooling\DefinitionEditor;
 use Jah\JAS\Tooling\JasFormatter;
 
 $base = sys_get_temp_dir() . '/jas_scaffold_' . bin2hex(random_bytes(5));
+$phpstanConfig = file_get_contents(dirname(__DIR__) . '/phpstan.neon.dist');
+if (!is_string($phpstanConfig) || !str_contains($phpstanConfig, 'level: 5')
+    || !str_contains($phpstanConfig, 'src/JAS') || !str_contains($phpstanConfig, 'src/DataCore')) {
+    throw new RuntimeException('phpstan_integration_missing');
+}
 $tool = new ProjectScaffolder();
 $files = $tool->create($base, 'Portal Gubernamental');
 if (count($files) !== 8 || !is_file($base . '/app/application.php')) throw new RuntimeException('project_scaffold_failed');

@@ -119,7 +119,7 @@ final class ApplicationDefinition
         return $matches[0];
     }
 
-    /** @return array{name:string,domains:array<string,array{prefix:string,dependencies:array}>,actions:array<string,string>} */
+    /** @return array{name:string,domains:array<string,array{prefix:string,dependencies:array}>,actions:array<string,string>,contracts:array<string,array>,events:array<string,array>} */
     public function describe(): array
     {
         $domains = [];

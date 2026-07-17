@@ -106,14 +106,14 @@ final class GovernedRuntime
                 'audit' => (bool) ($contract['audit'] ?? false), 'principal' => $this->principal,
                 'input_fingerprint' => $fingerprint, 'idempotent' => (bool) ($contract['idempotent'] ?? false),
             ];
-            $this->outbox?->prepare($requestId, $action, $prepared);
+            $this->outbox->prepare($requestId, $action, $prepared);
             $result = $this->publishPrepared($requestId, $action, $prepared);
             $this->wal->commit($requestId, $result);
-            if (!$deferOutboxApplied) $this->outbox?->applied($requestId);
+            if (!$deferOutboxApplied) $this->outbox->applied($requestId);
             return $result;
         } catch (Throwable $error) {
             $this->wal->abort($requestId, $error->getMessage());
-            if (($contract['audit'] ?? false) === true && $this->audit !== null) {
+            if (($contract['audit'] ?? false) === true) {
                 $this->audit->record($this->principal, $action, $requestId, false, $fingerprint, 'action_failed');
             }
             throw $error;
@@ -122,14 +122,14 @@ final class GovernedRuntime
 
     private function markOutboxApplied(string $requestId): null
     {
-        $this->outbox?->applied($requestId);
+        $this->outbox->applied($requestId);
         return null;
     }
 
     public function recoverOutbox(): int
     {
         $count = 0;
-        foreach ($this->outbox?->pending() ?? [] as $requestId => $entry) {
+        foreach ($this->outbox->pending() as $requestId => $entry) {
             $action = (string) ($entry['action'] ?? '');
             $record = (array) ($entry['record'] ?? []);
             $result = $this->publishPrepared((string) $requestId, $action, $record);
@@ -137,7 +137,7 @@ final class GovernedRuntime
             if (($record['idempotent'] ?? false) === true && $this->idempotency !== null) {
                 $this->idempotency->put($action, (string) $requestId, (string) $record['input_fingerprint'], $result);
             }
-            $this->outbox?->applied((string) $requestId);
+            $this->outbox->applied((string) $requestId);
             $count++;
         }
         return $count;
@@ -152,7 +152,7 @@ final class GovernedRuntime
             $result['event'] = $this->events->append((string) $event['name'], (int) $event['version'], $requestId, (array) $event['payload']);
         }
         if (($record['audit'] ?? false) === true) {
-            $this->audit?->record((string) $record['principal'], $action, $requestId, true, (string) $record['input_fingerprint']);
+            $this->audit->record((string) $record['principal'], $action, $requestId, true, (string) $record['input_fingerprint']);
         }
         return $result;
     }

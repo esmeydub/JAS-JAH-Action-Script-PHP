@@ -19,23 +19,20 @@ final class TranslationCatalog
         $this->types = new TypeRegistry();
     }
 
-    /** @param array<string,string> $parameters */
+    /** @param array $parameters */
     public function message(string $key, string $template, array $parameters = []): self
     {
         if (!preg_match('/^[a-z][a-z0-9_.-]{1,127}$/', $key) || isset($this->messages[$key])) throw new RuntimeException('translation_key_invalid');
         if ($template === '' || strlen($template) > 4_096 || str_contains($template, "\0")) throw new RuntimeException('translation_template_invalid');
-        if (!array_is_list($parameters) && $parameters !== []) {
-            foreach ($parameters as $name => $type) {
-                if (!is_string($name) || preg_match('/^[a-z_][a-z0-9_]{0,63}$/', $name) !== 1
-                    || !is_string($type) || !in_array($type, ['string', 'non-empty-string', 'identifier', 'int', 'positive-int', 'non-negative-int', 'float', 'number', 'bool', 'date', 'datetime', 'timezone'], true)) {
-                    throw new RuntimeException('translation_parameters_invalid');
-                }
+        if ($parameters !== [] && array_is_list($parameters)) throw new RuntimeException('translation_parameters_invalid');
+        foreach ($parameters as $name => $type) {
+            if (!is_string($name) || preg_match('/^[a-z_][a-z0-9_]{0,63}$/', $name) !== 1
+                || !is_string($type) || !in_array($type, ['string', 'non-empty-string', 'identifier', 'int', 'positive-int', 'non-negative-int', 'float', 'number', 'bool', 'date', 'datetime', 'timezone'], true)) {
+                throw new RuntimeException('translation_parameters_invalid');
             }
-        } elseif ($parameters !== []) {
-            throw new RuntimeException('translation_parameters_invalid');
         }
         preg_match_all('/\{([a-z_][a-z0-9_]*)\}/', $template, $matches);
-        $placeholders = array_values(array_unique($matches[1] ?? []));
+        $placeholders = array_values(array_unique($matches[1]));
         sort($placeholders);
         $defined = array_keys($parameters);
         sort($defined);
