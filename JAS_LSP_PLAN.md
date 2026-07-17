@@ -1,6 +1,6 @@
 # Plan normativo del servidor LSP de JAS
 
-Estado: **en progreso; L0–L3 completadas, L4 es la siguiente acción**
+Estado: **en progreso; L0–L4 completadas, L5 es la siguiente acción**
 
 ## Objetivo y frontera inmutable
 
@@ -104,6 +104,8 @@ cerrada con `JAS LSP BRIDGE SECURITY BOUNDARY: PASS`.
 
 ## Fase L4 — Capacidades mínimas
 
+Estado: **completada**
+
 Implementar en orden:
 
 1. `initialize` e `initialized`;
@@ -117,6 +119,15 @@ Implementar en orden:
 9. `$/cancelRequest` y backpressure de solicitudes pendientes.
 
 No se anunciará autocompletado, formato, code actions, símbolos o semantic tokens hasta implementarlos.
+
+Cierre verificado: `tests/test_jas_lsp_capabilities.sh` inicia el bridge estándar
+y valida documentos abiertos/cambiados/cerrados, diagnósticos push, hover,
+definición, referencias, prepareRename, rename como `WorkspaceEdit`, shutdown y
+exit. `$/cancelRequest` marca IDs activos y convierte su respuesta posterior en
+`-32800`; PHP termina la operación de forma acotada pero su resultado cancelado
+no llega al editor. La tabla mantiene 256 requests activos como máximo y la
+prueba de presión demuestra que el 257 se rechaza localmente con `-32000`.
+Ninguna operación LSP escribe o renombra archivos por sí misma.
 
 ## Fase L5 — Rename transaccional para el editor
 

@@ -74,6 +74,14 @@ struct Value {
     Value(Map value) : data(std::move(value)) {}
 };
 
+class LspRequestError final : public std::runtime_error {
+public:
+    LspRequestError(int code, const char* message) : std::runtime_error(message), code_(code) {}
+    int code() const noexcept { return code_; }
+private:
+    int code_;
+};
+
 bool validUtf8(const std::string& value) {
     const auto* bytes = reinterpret_cast<const unsigned char*>(value.data());
     std::size_t at = 0;
@@ -354,18 +362,22 @@ std::string kindFor(const std::string& method) { return method=="initialized" ||
 class Translator {
     std::mutex mutex_; std::map<std::string,std::int32_t> versions_;
     std::map<std::string,std::chrono::steady_clock::time_point> pending_;
+    std::set<std::string> cancelled_;
     std::string encoding_="utf-16"; std::string workspace_;
     static const rapidjson::Value& required(const rapidjson::Value& object,const char* name){if(!object.IsObject()||!object.HasMember(name))throw std::runtime_error("params_invalid");return object[name];}
     static std::string string(const rapidjson::Value& value){if(!value.IsString())throw std::runtime_error("params_invalid");return {value.GetString(),value.GetStringLength()};}
     std::int32_t version(const std::string& uri){std::lock_guard lock(mutex_);auto it=versions_.find(uri);return it==versions_.end()?0:it->second;}
     static std::string idKey(const Value& value) {if(const auto* id=std::get_if<std::int32_t>(&value.data))return "i:"+std::to_string(*id);if(const auto* id=std::get_if<std::string>(&value.data))return "s:"+*id;throw std::runtime_error("id_invalid");}
-    void registerRequest(const Value& id){std::lock_guard lock(mutex_);if(pending_.size()>=MAX_PENDING_REQUESTS||!pending_.emplace(idKey(id),std::chrono::steady_clock::now()+REQUEST_TIMEOUT).second)throw std::runtime_error("request_backpressure");}
-    void completeRequest(const Value& id){std::lock_guard lock(mutex_);if(pending_.erase(idKey(id))!=1)throw std::runtime_error("response_unmatched");}
+    void registerRequest(const Value& id){std::lock_guard lock(mutex_);if(pending_.size()>=MAX_PENDING_REQUESTS||!pending_.emplace(idKey(id),std::chrono::steady_clock::now()+REQUEST_TIMEOUT).second)throw LspRequestError(-32000,"Server request limit reached");}
+    void cancelRequest(const Value& id){std::lock_guard lock(mutex_);const auto key=idKey(id);if(pending_.contains(key))cancelled_.insert(key);}
+    bool completeRequest(const Value& id){std::lock_guard lock(mutex_);const auto key=idKey(id);if(pending_.erase(key)!=1)throw std::runtime_error("response_unmatched");return cancelled_.erase(key)==1;}
 public:
     bool requestExpired(){std::lock_guard lock(mutex_);const auto now=std::chrono::steady_clock::now();return std::any_of(pending_.begin(),pending_.end(),[now](const auto& item){return item.second<=now;});}
     std::pair<std::uint16_t,Map> inbound(const rapidjson::Document& doc) {
         if(!doc.IsObject()||!doc.HasMember("jsonrpc")||!doc["jsonrpc"].IsString()||std::string_view(doc["jsonrpc"].GetString(),doc["jsonrpc"].GetStringLength())!="2.0"||!doc.HasMember("method")||!doc["method"].IsString())throw std::runtime_error("request_invalid");
-        const std::string method(doc["method"].GetString(),doc["method"].GetStringLength()); const std::string kind=kindFor(method);
+        const std::string method(doc["method"].GetString(),doc["method"].GetStringLength());
+        if(method=="$/cancelRequest") {if(doc.HasMember("id")||!doc.HasMember("params")||!doc["params"].IsObject()||!doc["params"].HasMember("id"))throw std::runtime_error("cancel_invalid");cancelRequest(idValue(doc["params"]["id"]));return {0,{}};}
+        const std::string kind=kindFor(method);
         if((kind=="request")!=doc.HasMember("id"))throw std::runtime_error("id_direction");
         const rapidjson::Value empty(rapidjson::kObjectType); const auto& params=doc.HasMember("params")?doc["params"]:empty;
         Map body;
@@ -413,8 +425,9 @@ public:
                     diagnostic.AddMember("severity",asInt(field(source,"severity")),a);const auto& code=asString(field(source,"code"));const auto& message=asString(field(source,"message"));diagnostic.AddMember("code",rapidjson::Value(code.data(),static_cast<rapidjson::SizeType>(code.size()),a),a);diagnostic.AddMember("source","jas",a);diagnostic.AddMember("message",rapidjson::Value(message.data(),static_cast<rapidjson::SizeType>(message.size()),a),a);diagnostics.PushBack(diagnostic,a);}
                 params.AddMember("diagnostics",diagnostics,a);
             } else params.SetObject();out.AddMember("params",params,a);writer.write(out);return;}
-        completeRequest(field(envelope,"external_id"));
+        const bool cancelled=completeRequest(field(envelope,"external_id"));
         rapidjson::Value id;toJson(field(envelope,"external_id"),id,a);out.AddMember("id",id,a);
+        if(cancelled){rapidjson::Value error(rapidjson::kObjectType);error.AddMember("code",-32800,a);error.AddMember("message","Request cancelled",a);out.AddMember("error",error,a);writer.write(out);return;}
         if(kind=="error"||packet.opcode==OP_ERROR){rapidjson::Value error(rapidjson::kObjectType);error.AddMember("code",asInt(field(body,"code")),a);const auto& msg=asString(field(body,"message"));error.AddMember("message",rapidjson::Value(msg.data(),static_cast<rapidjson::SizeType>(msg.size()),a),a);out.AddMember("error",error,a);writer.write(out);return;}
         rapidjson::Value result;
         if(method=="initialize"){result.SetObject();rapidjson::Value caps(rapidjson::kObjectType);const auto& e=asString(field(body,"position_encoding"));caps.AddMember("positionEncoding",rapidjson::Value(e.data(),static_cast<rapidjson::SizeType>(e.size()),a),a);rapidjson::Value sync(rapidjson::kObjectType);sync.AddMember("openClose",true,a);sync.AddMember("change",1,a);caps.AddMember("textDocumentSync",sync,a);caps.AddMember("hoverProvider",true,a);caps.AddMember("definitionProvider",true,a);caps.AddMember("referencesProvider",true,a);rapidjson::Value rename(rapidjson::kObjectType);rename.AddMember("prepareProvider",true,a);caps.AddMember("renameProvider",rename,a);result.AddMember("capabilities",caps,a);rapidjson::Value info(rapidjson::kObjectType);info.AddMember("name","JAS Language Server",a);info.AddMember("version","0.1.0",a);result.AddMember("serverInfo",info,a);}
@@ -481,7 +494,7 @@ int main(int argc,char** argv){
     std::array<std::uint8_t,32> key{},sessionBytes{};if(RAND_bytes(key.data(),key.size())!=1||RAND_bytes(sessionBytes.data(),16)!=1){std::cerr<<"JAS LSP bridge could not initialize\n";return 2;}
     Child child{};std::atomic<bool> running{true};std::atomic<bool> timedOut{false},backendFailed{false},gracefulExit{false};try{child=spawnPhp(php,jas,workspace,key);JasChannel channel(child.input,child.output,key,hex(sessionBytes.data(),16));OPENSSL_cleanse(key.data(),key.size());OPENSSL_cleanse(sessionBytes.data(),sessionBytes.size());Translator translator;LspWriter writer;bool framingFailure=false;const pthread_t mainThread=pthread_self();
         std::thread reader([&]{try{while(running){if(channel.ready(25)){translator.outbound(channel.receive(),writer);continue;}if(translator.requestExpired()){timedOut=true;running=false;kill(child.pid,SIGKILL);pthread_kill(mainThread,SIGUSR1);break;}}}catch(...){if(!gracefulExit){backendFailed=true;kill(child.pid,SIGKILL);}running=false;pthread_kill(mainThread,SIGUSR1);}});
-        while(running){std::optional<std::string> body;try{body=readLspMessage();}catch(...){if(!timedOut&&!backendFailed)framingFailure=true;break;}if(!body)break;rapidjson::Document doc;doc.Parse<rapidjson::kParseValidateEncodingFlag|rapidjson::kParseStopWhenDoneFlag|rapidjson::kParseIterativeFlag>(body->data(),body->size());if(doc.HasParseError()){try{writer.error(nullptr,-32700,"Parse error");}catch(...){break;}continue;}try{std::size_t jsonItems=0;validateJson(doc,0,jsonItems);auto [opcode,message]=translator.inbound(doc);const bool exiting=opcode==OP_EXIT;if(exiting)gracefulExit=true;try{channel.send(opcode,message);}catch(...){if(exiting)gracefulExit=false;throw;}if(exiting)break;}catch(const std::exception&){const rapidjson::Value* id=doc.IsObject()&&doc.HasMember("id")?&doc["id"]:nullptr;if(id){try{writer.error(id,-32602,"Invalid or unsupported language request");}catch(...){break;}}}}
+        while(running){std::optional<std::string> body;try{body=readLspMessage();}catch(...){if(!timedOut&&!backendFailed)framingFailure=true;break;}if(!body)break;rapidjson::Document doc;doc.Parse<rapidjson::kParseValidateEncodingFlag|rapidjson::kParseStopWhenDoneFlag|rapidjson::kParseIterativeFlag>(body->data(),body->size());if(doc.HasParseError()){try{writer.error(nullptr,-32700,"Parse error");}catch(...){break;}continue;}try{std::size_t jsonItems=0;validateJson(doc,0,jsonItems);auto [opcode,message]=translator.inbound(doc);if(opcode==0)continue;const bool exiting=opcode==OP_EXIT;if(exiting)gracefulExit=true;try{channel.send(opcode,message);}catch(...){if(exiting)gracefulExit=false;throw;}if(exiting)break;}catch(const LspRequestError& error){const rapidjson::Value* id=doc.IsObject()&&doc.HasMember("id")?&doc["id"]:nullptr;if(id){try{writer.error(id,error.code(),error.what());}catch(...){break;}}}catch(const std::exception&){const rapidjson::Value* id=doc.IsObject()&&doc.HasMember("id")?&doc["id"]:nullptr;if(id){try{writer.error(id,-32602,"Invalid or unsupported language request");}catch(...){break;}}}}
         close(child.output);if(reader.joinable())reader.join();running=false;close(child.input);int status=0;waitpid(child.pid,&status,0);if(timedOut){std::cerr<<"JAS LSP bridge terminated an unresponsive backend\n";return 1;}if(framingFailure){std::cerr<<"JAS LSP bridge rejected malformed framing\n";return 1;}if(backendFailed){std::cerr<<"JAS LSP bridge terminated after backend failure\n";return 1;}return WIFEXITED(status)?WEXITSTATUS(status):1;
     }catch(const std::exception&){running=false;OPENSSL_cleanse(key.data(),key.size());OPENSSL_cleanse(sessionBytes.data(),sessionBytes.size());if(child.output>=0)close(child.output);if(child.input>=0)close(child.input);if(child.pid>0){kill(child.pid,SIGTERM);waitpid(child.pid,nullptr,0);}std::cerr<<"JAS LSP bridge stopped safely\n";return 1;}
 }

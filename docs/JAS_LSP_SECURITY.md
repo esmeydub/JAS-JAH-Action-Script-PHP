@@ -1,7 +1,7 @@
 # Frontera de seguridad del servidor de lenguaje JAS
 
-Estado: L0–L3 completadas; bridge, lifecycle, aislamiento y timeout verificados.
-Las capacidades completas L4, la interoperabilidad y la distribución siguen
+Estado: L0–L4 completadas; bridge, lifecycle, capacidades, aislamiento, timeout,
+cancelación y backpressure verificados. Rename negociado, interoperabilidad y distribución siguen
 abiertas; JAS todavía no se presenta como servidor LSP terminado.
 
 ## Procesos y zonas de confianza
@@ -119,6 +119,9 @@ implementar posiciones y rangos Unicode en L1.
 - SALK se verifica con comparación constante. También se comprueban versión,
   flags, timestamp, opcode, sesión, longitudes e ID de respuesta activo.
 - Hay un máximo de 256 requests simultáneos y no se admiten IDs activos repetidos.
+- `$/cancelRequest` sólo puede marcar un ID activo; nunca produce un opcode ni
+  ejecuta una orden en PHP. La respuesta posterior se sustituye por `-32800` y
+  la operación interna permanece limitada por el timeout fail-closed.
 - PHP se ejecuta con paths canónicos, argv fijo, entorno vacío, FDs mínimos,
   umask 077, core dumps deshabilitados y `no_new_privs`; stderr va a un sumidero
   acotado para que un error no filtre rutas, secretos o contenido al editor.

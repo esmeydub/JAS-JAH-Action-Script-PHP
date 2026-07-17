@@ -97,6 +97,23 @@ if test -n "$timeout_bridge"; then
     set -e
     test "$status" -eq 1
     grep -q '^JAS LSP bridge terminated an unresponsive backend$' "$attack_error"
+
+    # El request 257 se rechaza localmente; el backend sólo drena y no responde.
+    printf '%s\n' '<?php while (!feof(STDIN)) { fread(STDIN, 8192); usleep(1000); }' > "$fake_cli"
+    initialize_pressure=$(printf '{"jsonrpc":"2.0","id":1000,"method":"initialize","params":{"processId":null,"rootUri":"%s","capabilities":{}}}' "$uri")
+    printf 'Content-Length: %s\r\n\r\n%s' "${#initialize_pressure}" "$initialize_pressure" > "$attack_input"
+    request=1001
+    while test "$request" -le 1256; do
+        pressure=$(printf '{"jsonrpc":"2.0","id":%s,"method":"textDocument/hover","params":{"textDocument":{"uri":"%s/test.php"},"position":{"line":0,"character":0}}}' "$request" "$uri")
+        printf 'Content-Length: %s\r\n\r\n%s' "${#pressure}" "$pressure" >> "$attack_input"
+        request=$((request + 1))
+    done
+    set +e
+    "$timeout_bridge" "$(command -v php)" "$fake_cli" "$workspace" < "$attack_input" > "$attack_output" 2> "$attack_error"
+    status=$?
+    set -e
+    test "$status" -eq 1
+    grep -q '"id":1256,"error":{"code":-32000,"message":"Server request limit reached"}' "$attack_output"
 fi
 printf '%s\n' 'JAS STANDARD LSP BRIDGE LIFECYCLE: PASS'
 printf '%s\n' 'JAS LSP BRIDGE SECURITY BOUNDARY: PASS'
