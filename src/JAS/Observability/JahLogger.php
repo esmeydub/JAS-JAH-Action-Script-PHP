@@ -5,11 +5,16 @@ declare(strict_types=1);
 namespace Jah\JAS\Observability;
 
 use Jah\DataCore\PhpSerializer;
+use Jah\DataCore\WriteAdmission;
 use RuntimeException;
 
 final class JahLogger
 {
-    public function __construct(private readonly string $file, private readonly mixed $sanitizer = null)
+    public function __construct(
+        private readonly string $file,
+        private readonly mixed $sanitizer = null,
+        private readonly ?WriteAdmission $writeAdmission = null,
+    )
     {
         if ($sanitizer !== null && !is_callable($sanitizer)) throw new RuntimeException('logger_sanitizer_invalid');
         $directory = dirname($file);
@@ -23,6 +28,9 @@ final class JahLogger
         if ($this->sanitizer !== null) $context = ($this->sanitizer)($context);
         $record = ['at' => microtime(true), 'level' => $level, 'event' => $event, 'context' => $context, 'pid' => getmypid()];
         $line = PhpSerializer::encode($record) . "\n";
+        $this->writeAdmission?->assertWritable(
+            'observability.log.append', strlen($line), in_array($level, ['warning', 'error', 'critical'], true)
+        );
         $handle = fopen($this->file, 'ab');
         if ($handle === false || !flock($handle, LOCK_EX)) throw new RuntimeException('logger_write_failed');
         try {

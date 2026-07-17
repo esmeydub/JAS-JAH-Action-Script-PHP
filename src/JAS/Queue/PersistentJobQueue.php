@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Jah\JAS\Queue;
 
 use Jah\DataCore\PhpSerializer;
+use Jah\DataCore\WriteAdmission;
 use RuntimeException;
 
 final class PersistentJobQueue
@@ -15,7 +16,8 @@ final class PersistentJobQueue
     public function __construct(
         string $directory,
         private readonly int $maxQueued = 10000,
-        private readonly int $defaultLeaseSeconds = 30
+        private readonly int $defaultLeaseSeconds = 30,
+        private readonly ?WriteAdmission $writeAdmission = null,
     ) {
         if ($maxQueued < 1 || $defaultLeaseSeconds < 1) throw new RuntimeException('Configuración de cola inválida');
         if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
@@ -259,6 +261,8 @@ final class PersistentJobQueue
     private function appendUnlocked(array $event): void
     {
         $encoded = PhpSerializer::encode($event) . "\n";
+        $essential = in_array((string) ($event['type'] ?? ''), ['LEASE', 'COMPLETE', 'FAIL', 'EXPIRE', 'CANCEL'], true);
+        $this->writeAdmission?->assertWritable('queue.journal.append', strlen($encoded), $essential);
         $h = fopen($this->journal, 'ab');
         if ($h === false) throw new RuntimeException('No se pudo abrir journal de cola');
         try {

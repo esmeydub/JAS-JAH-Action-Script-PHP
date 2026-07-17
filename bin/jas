@@ -49,6 +49,15 @@ switch ($command) {
         echo "JAS HEALTH\n";
         foreach ($checks as $name => $value) echo str_pad($name, 24) . ': ' . (is_bool($value) ? ($value ? 'OK' : 'NO') : $value) . "\n";
         exit(0);
+    case 'disk:status':
+        $disk = Jah\JAS\Observability\DiskPressureGuard::fromEnvironment($root);
+        $report = $disk->report();
+        echo "JAS DISK: " . strtoupper($report['level']) . "\n";
+        echo "Free bytes: {$report['free_bytes']}\n";
+        echo "Free percent: {$report['free_percent']}\n";
+        echo "Regular writes: " . ($report['accepting_regular_writes'] ? 'YES' : 'NO') . "\n";
+        echo "Essential writes: " . ($report['accepting_essential_writes'] ? 'YES' : 'NO') . "\n";
+        exit($report['level'] === Jah\JAS\Observability\DiskPressureGuard::EMERGENCY ? 2 : 0);
     case 'queue:stats':
         $queue = new Jah\JAS\Queue\PersistentJobQueue($root . '/runtime/queue');
         jas_print($queue->stats());
@@ -298,6 +307,7 @@ switch ($command) {
         echo "JAS CLI\n\n";
         echo "  bin/jas test          Ejecuta la suite completa\n";
         echo "  bin/jas health        Verifica capacidades locales\n";
+        echo "  bin/jas disk:status   Muestra presión de disco y admisión de escrituras\n";
         echo "  bin/jas wal:pending    Muestra transacciones sin cerrar\n";
         echo "  bin/jas outbox:pending Muestra publicaciones preparadas pendientes\n";
         echo "  bin/jas datacore:compact <coleccion> [--apply] [--drop-backup]\n";

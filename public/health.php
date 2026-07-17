@@ -5,20 +5,18 @@ declare(strict_types=1);
 $boot = require dirname(__DIR__) . '/app/bootstrap.php';
 
 use Jah\JAS\Observability\HealthRegistry;
+use Jah\JAS\Observability\DiskPressureGuard;
 use Jah\JAS\Web\OperationalHealthEndpoint;
 use Jah\JAS\Web\Request;
 
 $root = (string) $boot['root'];
 $dataCore = (string) $boot['config']['paths']['datacore_storage'];
-$minimumFreeBytes = max(16_777_216, (int) (getenv('JAS_HEALTH_MIN_FREE_BYTES') ?: 268_435_456));
+$disk = DiskPressureGuard::fromEnvironment($root);
 $registry = (new HealthRegistry())
     ->check('php.runtime', static fn(): bool => version_compare(PHP_VERSION, '8.2.0', '>='))
     ->check('runtime.writable', static fn(): bool => is_dir($root . '/runtime') && is_writable($root . '/runtime'))
     ->check('datacore.writable', static fn(): bool => is_dir($dataCore) && is_writable($dataCore))
-    ->check('disk.capacity', static function () use ($root, $minimumFreeBytes): bool {
-        $free = disk_free_space($root);
-        return is_float($free) && $free >= $minimumFreeBytes;
-    });
+    ->check('disk.capacity', static fn(): array => $disk->report());
 
 $token = (string) (getenv('JAS_HEALTH_TOKEN') ?: '');
 $endpoint = new OperationalHealthEndpoint($registry, static function (Request $request) use ($token): bool {

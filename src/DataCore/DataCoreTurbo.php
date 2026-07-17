@@ -31,11 +31,13 @@ final class DataCoreTurbo
     /** @var null|callable():bool */
     private mixed $compactionAllowed = null;
     private ?DataCoreContinuityLock $continuity = null;
+    private ?WriteAdmission $writeAdmission = null;
 
-    public function __construct(string $basePath, int $batchSize = 1000)
+    public function __construct(string $basePath, int $batchSize = 1000, ?WriteAdmission $writeAdmission = null)
     {
         $this->basePath = rtrim($basePath, '/');
         $this->batchSize = max(1, $batchSize);
+        $this->writeAdmission = $writeAdmission;
         $this->initDirs();
     }
 
@@ -93,6 +95,9 @@ final class DataCoreTurbo
             return;
         }
 
+        $estimatedBytes = 0;
+        foreach ($this->buffer as $entry) $estimatedBytes += strlen(PhpSerializer::encode($entry['doc'])) + 256;
+        $this->writeAdmission?->assertWritable('datacore.flush', min($estimatedBytes, 1_073_741_824));
         $batch = $this->buffer;
         $this->buffer = [];
 

@@ -357,6 +357,9 @@ Estado: **en progreso**
 - `OperationalHealthEndpoint` separa liveness, readiness y diagnóstico autenticado: liveness no toca dependencias, readiness no revela componentes y el detalle falla cerrado antes de ejecutar checks.
 - `public/health.php` comprueba PHP, escritura de runtime/DataCore y umbral de disco; usa texto nativo sin JSON, headers restrictivos, `503` con `Retry-After` y token operativo de al menos 32 bytes para detalles.
 - Pruebas positivas y adversariales cubren dependencia caída, excepción sensible, autorización fallida, método y ruta inválidos; `JAS OPERATIONAL HEALTH: PASS`.
+- `DiskPressureGuard` clasifica `normal`, `warning`, `critical` y `emergency`, emite alertas sólo en transiciones y considera el tamaño proyectado antes de admitir una escritura.
+- DataCore, `StorageAgent`, la cola persistente y `JahLogger` aceptan la misma interfaz `WriteAdmission`; presión crítica bloquea trabajo nuevo y conserva reserva para cerrar leases y transiciones esenciales de cola hasta el umbral de emergencia.
+- Un flush DataCore rechazado conserva el lote para reintento; pruebas inyectadas verifican warning temprano, deduplicación de alertas, bloqueo regular, reserva esencial, emergencia y recuperación sin llenar el disco real: `JAS DISK PRESSURE: PASS`.
 
 ### Alcance
 
@@ -438,7 +441,7 @@ cambio futuro de estado debe actualizar simultáneamente la fase y esta tabla.
 | 5 | Completada | Identidad y acceso institucional: `php tests/test_jas_identity.php` y `php tests/test_jas_security.php` |
 | 6 | Completada | JAS Web: `php tests/test_jas_web.php`, `php tests/test_jas_accessibility.php` y `php tests/test_jas_upload.php` |
 | 7 | Completada | Tooling y ciclo de proyecto: `php tests/test_jas_tooling.php`, `php tests/test_jas_language_engine.php`, `php tests/test_jas_project_lifecycle.php` y `php bin/jas static` |
-| 8 | En progreso | DLQ, reproceso y health HTTP: `php tests/test_jas_dead_letter.php`, `php tests/test_jas_health.php`; gate transversal: `php tests/run_all.php` |
+| 8 | En progreso | DLQ, health y presión de disco: `php tests/test_jas_dead_letter.php`, `php tests/test_jas_health.php`, `php tests/test_jas_disk_pressure.php`; gate transversal: `php tests/run_all.php` |
 | 9 | Pendiente | No iniciada |
 | 10 | Pendiente | No iniciada |
 
@@ -447,7 +450,7 @@ registrado es `JAS SUITE: PASS`.
 
 ## Próxima acción obligatoria
 
-Continuar **Fase 8 — Escala y operación** con alertas y límites preventivos de
-disco, seguido por retención y compactación automática de logs/journals. No
-iniciar la Fase 9 hasta cerrar y registrar todos los criterios de salida de la
-Fase 8.
+Continuar **Fase 8 — Escala y operación** con retención y compactación automática
+de logs/journals, seguida por métricas y trazas exportables mediante adaptadores.
+No iniciar la Fase 9 hasta cerrar y registrar todos los criterios de salida de
+la Fase 8.

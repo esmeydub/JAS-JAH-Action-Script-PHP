@@ -13,7 +13,7 @@ final class StorageAgent
     private int $segmentSize = 10000;
     private array $indexes = [];
 
-    public function __construct(string $basePath)
+    public function __construct(string $basePath, private readonly ?WriteAdmission $writeAdmission = null)
     {
         $this->basePath = rtrim($basePath, '/');
         if (!is_dir($this->basePath) && !mkdir($this->basePath, 0700, true) && !is_dir($this->basePath)) {
@@ -38,6 +38,7 @@ final class StorageAgent
             'ts' => $doc['_ts'],
             'hash' => $payloadHash,
         ]) . "\n";
+        $this->writeAdmission?->assertWritable('datacore.storage.insert', strlen($record) + 128);
 
         $file = $this->basePath . "/{$collection}_{$segment}.jahl";
         $handle = fopen($file, 'c+b');

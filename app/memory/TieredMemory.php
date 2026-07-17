@@ -8,6 +8,7 @@ use Jah\DataCore\DataCoreTurbo;
 use Jah\DataCore\MemoryPyramid;
 use Jah\DataCore\Compressor;
 use Jah\DataCore\PhpSerializer;
+use Jah\JAS\Observability\DiskPressureGuard;
 
 /**
  * TieredMemory
@@ -41,7 +42,11 @@ class TieredMemory
         }
 
         $this->runtimeMemoryPath = dirname($this->storagePath);
-        $this->hot = new DataCoreTurbo($this->storagePath, 500);
+        if (!is_dir($this->runtimeMemoryPath) && !mkdir($this->runtimeMemoryPath, 0700, true) && !is_dir($this->runtimeMemoryPath)) {
+            throw new \RuntimeException('Cannot create governed memory directory');
+        }
+        $admission = DiskPressureGuard::fromEnvironment($this->runtimeMemoryPath);
+        $this->hot = new DataCoreTurbo($this->storagePath, 500, $admission);
         $this->pyramid = new MemoryPyramid($this->pyramidPath);
 
         foreach (['warm', 'cold'] as $dir) {

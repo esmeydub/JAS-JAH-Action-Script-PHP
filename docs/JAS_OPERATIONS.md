@@ -71,10 +71,41 @@ válida cuando no existe rewrite. Todas las respuestas incluyen `no-store`,
   `JAS_HEALTH_TOKEN` de al menos 32 bytes; si falta o el autorizador falla,
   responde 401 antes de ejecutar las comprobaciones.
 
-El umbral preventivo se configura con `JAS_HEALTH_MIN_FREE_BYTES`; el mínimo
-aceptado es 16 MiB y el valor predeterminado es 256 MiB. Este umbral sólo marca
-readiness: las alertas y límites progresivos de disco se implementan en el
-siguiente bloque de la Fase 8.
+Los umbrales se configuran con `JAS_DISK_WARNING_BYTES`,
+`JAS_DISK_CRITICAL_BYTES` y `JAS_DISK_EMERGENCY_BYTES`. Sin configuración, JAS
+adapta los valores al tamaño del volumen: 20 %, 10 % y 3 %, limitados a un
+máximo de 2 GiB, 1 GiB y 256 MiB y a mínimos seguros de 64, 32 y 16 MiB. Esto
+evita aplicar umbrales de un servidor grande a volúmenes pequeños de pruebas o
+contenedores.
 
 No se debe usar `/health` como sonda pública ni incluir el token en URLs, logs o
 manifiestos versionados.
+
+## Presión de disco y admisión de escrituras
+
+```bash
+php bin/jas disk:status
+```
+
+`DiskPressureGuard` aplica cuatro niveles ordenados:
+
+- `normal`: admite todas las escrituras.
+- `warning`: emite una transición de alerta, mantiene el servicio y permite
+  actuar antes de afectar tráfico.
+- `critical`: readiness falla y se rechazan escrituras regulares nuevas, como
+  submits de cola, logs informativos y flushes DataCore. Se conserva una reserva
+  para completar, fallar o cancelar leases y registrar operaciones esenciales.
+- `emergency`: se rechazan también escrituras esenciales antes de consumir el
+  último espacio recuperable.
+
+La evaluación considera el tamaño estimado de la operación: una escritura que
+cruzaría preventivamente a `critical` o `emergency` se rechaza aunque el estado
+actual todavía sea menos severo. DataCore conserva en memoria un lote cuyo flush
+fue rechazado y puede publicarlo después de recuperar espacio.
+
+La alerta se entrega mediante un callback tipado sólo cuando cambia el nivel;
+un proceso persistente no repite la misma alerta en cada evaluación y también
+emite la transición de recuperación a `normal`. El adaptador de alertas externo
+debe enviarla al sistema institucional sin escribir de nuevo en el mismo disco
+afectado. `/health/ready` permite que el orquestador retire el nodo cuando llega
+a `critical`, sin revelar métricas internas al público.

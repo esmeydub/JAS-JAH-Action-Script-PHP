@@ -199,6 +199,7 @@ For 5,000 records: create 0.068148 s, verify 0.031700 s and restore
 
 ```bash
 php bin/jas health
+php bin/jas disk:status
 curl --fail http://127.0.0.1/health/live
 curl --fail http://127.0.0.1/health/ready
 php bin/jas test
