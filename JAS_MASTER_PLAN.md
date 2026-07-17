@@ -394,21 +394,28 @@ Estado: **pendiente**
 
 ## Registro de avance
 
-Cada cierre debe añadirse aquí con fecha, evidencia y comandos ejecutados.
+Este registro se sincronizó con las secciones normativas el 2026-07-16. Cada
+cambio futuro de estado debe actualizar simultáneamente la fase y esta tabla.
 
-| Fase | Estado | Evidencia |
+| Fase | Estado | Evidencia reproducible |
 |---|---|---|
-| 1 | En progreso | Motor de tipos unificado, suite y analizador existentes |
-| 2 | Pendiente | — |
-| 3 | Pendiente | — |
-| 4 | Pendiente | — |
-| 5 | Pendiente | — |
-| 6 | Pendiente | — |
-| 7 | Pendiente | — |
-| 8 | Pendiente | — |
-| 9 | Pendiente | — |
-| 10 | Pendiente | — |
+| 1 | Completada | Núcleo y definiciones: `php tests/test_jas_core.php` y `php tests/test_jas_definition.php` |
+| 2 | Completada | Transacciones y recuperación: `php tests/test_datacore_database.php` y `php tests/test_jas_regressions.php` |
+| 3 | Completada | DataCore empresarial y SQL Mirror: `php tests/test_datacore_database.php` y `php tests/benchmark.php` |
+| 4 | Completada | Backup, restauración y continuidad: `php tests/test_datacore_backup.php` |
+| 5 | Completada | Identidad y acceso institucional: `php tests/test_jas_identity.php` y `php tests/test_jas_security.php` |
+| 6 | Completada | JAS Web: `php tests/test_jas_web.php`, `php tests/test_jas_accessibility.php` y `php tests/test_jas_upload.php` |
+| 7 | En progreso | Tooling, PHPStan y servicio de lenguaje: `php tests/test_jas_tooling.php`, `php tests/test_jas_language_server.php` y `php bin/jas static` |
+| 8 | Pendiente | No iniciada |
+| 9 | Pendiente | No iniciada |
+| 10 | Pendiente | No iniciada |
+
+La comprobación transversal vigente es `php tests/run_all.php`, cuyo resultado
+registrado es `JAS SUITE: PASS`.
 
 ## Próxima acción obligatoria
 
-Completar **Fase 1 — Consolidación del núcleo**. No iniciar aislamiento transaccional de Fase 2 hasta cerrar y registrar todos sus criterios de salida.
+Completar **Fase 7 — Herramientas y experiencia de desarrollo**: generación de
+documentación y diagramas, verificación de compatibilidad en CLI y guía única de
+proyecto funcional. No iniciar la Fase 8 hasta cerrar y registrar sus criterios
+de salida.
