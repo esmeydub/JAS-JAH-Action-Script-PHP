@@ -89,3 +89,26 @@ El workflow ejecuta PHPStan y la suite en PHP 8.2 y 8.4. Las acciones externas
 están fijadas por SHA completo, los permisos del token se reducen a lectura y
 las dependencias se instalan desde `composer.lock`. Un error estático, un
 contrato roto o una prueba fallida bloquea CI; no se genera baseline automática.
+
+## Servicio de lenguaje JAS
+
+El motor de lenguaje indexa directamente las definiciones PHP literales; no las
+ejecuta, no crea índices persistentes y no utiliza JSON. Reconoce tipos, dominios,
+acciones, eventos y capacidades. Todas las posiciones del CLI usan línea y
+columna comenzando en 1.
+
+```bash
+php bin/jas lsp:diagnostics mi-proyecto
+php bin/jas lsp:hover mi-proyecto app/Actions/Crear.php 8 25
+php bin/jas lsp:definition mi-proyecto app/Actions/Crear.php 8 25
+php bin/jas lsp:references mi-proyecto app/Actions/Crear.php 8 25
+php bin/jas lsp:rename mi-proyecto app/Actions/Crear.php 8 25 Solicitud
+php bin/jas lsp:rename mi-proyecto app/Actions/Crear.php 8 25 Solicitud --apply
+```
+
+`lsp:rename` sólo muestra el plan de cambios de forma predeterminada. Con
+`--apply`, valida el nuevo identificador según su clase, rechaza colisiones y
+rutas fuera del proyecto, comprueba el hash de cada archivo bajo bloqueo y
+prepara todas las definiciones antes de reemplazarlas. Si una publicación falla,
+restaura las copias verificadas. El renombrado conserva las referencias entre
+entradas, salidas, payloads, dominios y capacidades.

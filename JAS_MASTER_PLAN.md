@@ -300,6 +300,8 @@ Estado: **en progreso**
 - El analizador indexa símbolos `App\\`, comprueba rutas PSR-4, resuelve imports internos y rechaza flujos entre `App\\Domains\\<Dominio>` cuando la dependencia no está declarada.
 - `analyze` reconstruye el grafo de producción mediante el lector literal seguro, por lo que contratos, tipos, eventos o dependencias rotos hacen fallar CI sin ejecutar definiciones.
 - PHPStan 2.x está integrado en nivel 5 para todo `src/JAS` y `src/DataCore`, sin baseline; el workflow usa acciones fijadas por SHA y valida PHP 8.2/8.4 antes de aceptar cambios.
+- El servicio de lenguaje nativo ofrece diagnósticos, hover, definición, referencias y rename para tipos, dominios, acciones, eventos y capacidades; trabaja sobre PHP literal sin ejecutar código ni persistir JSON.
+- El rename usa vista previa, validación por clase de símbolo, detección de colisiones, hashes contra cambios concurrentes, bloqueo y reemplazo recuperable de todas las referencias.
 
 ### Alcance
 

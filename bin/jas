@@ -190,6 +190,40 @@ switch ($command) {
         }
         echo $report['ok'] ? "JAS ANALYZE: PASS ({$report['files']} files)\n" : "JAS ANALYZE: FAIL\n";
         exit($report['ok'] ? 0 : 1);
+    case 'lsp:diagnostics':
+        $report = (new Jah\JAS\Tooling\JasLanguageServer())->diagnostics((string) ($argv[2] ?? '.'));
+        foreach ($report['diagnostics'] as $diagnostic) {
+            echo $diagnostic['file'] . ':' . $diagnostic['line'] . ' [' . $diagnostic['code'] . '] ' . $diagnostic['message'] . "\n";
+        }
+        echo $report['ok'] ? "JAS LSP: PASS ({$report['files']} files)\n" : "JAS LSP: DIAGNOSTICS\n";
+        exit($report['ok'] ? 0 : 1);
+    case 'lsp:hover':
+    case 'lsp:definition':
+    case 'lsp:references':
+        $language = new Jah\JAS\Tooling\JasLanguageServer();
+        $project = (string) ($argv[2] ?? '.');
+        $file = (string) ($argv[3] ?? '');
+        $line = (int) ($argv[4] ?? 0);
+        $column = (int) ($argv[5] ?? 0);
+        $result = match ($command) {
+            'lsp:hover' => $language->hover($project, $file, $line, $column),
+            'lsp:definition' => $language->definition($project, $file, $line, $column),
+            'lsp:references' => $language->references($project, $file, $line, $column),
+        };
+        if ($result === null || $result === []) { echo "JAS LSP: SYMBOL NOT FOUND\n"; exit(1); }
+        jas_print($result);
+        exit(0);
+    case 'lsp:rename':
+        $result = (new Jah\JAS\Tooling\JasLanguageServer())->rename(
+            (string) ($argv[2] ?? '.'),
+            (string) ($argv[3] ?? ''),
+            (int) ($argv[4] ?? 0),
+            (int) ($argv[5] ?? 0),
+            (string) ($argv[6] ?? ''),
+            in_array('--apply', $argv, true),
+        );
+        jas_print($result);
+        exit(0);
     case 'static':
         $phpstan = $root . '/vendor/bin/phpstan';
         if (!is_file($phpstan)) {
@@ -231,6 +265,11 @@ switch ($command) {
         echo "  bin/jas action:configure <proyecto> <accion> <Entrada> <Salida> <capacidad>\n";
         echo "  bin/jas format <proyecto> [--check]          Formatea definiciones JAS\n";
         echo "  bin/jas analyze <proyecto>                    Analiza organización y seguridad\n";
+        echo "  bin/jas lsp:diagnostics <proyecto>            Publica diagnósticos del proyecto\n";
+        echo "  bin/jas lsp:hover <proyecto> <archivo> <línea> <columna>\n";
+        echo "  bin/jas lsp:definition <proyecto> <archivo> <línea> <columna>\n";
+        echo "  bin/jas lsp:references <proyecto> <archivo> <línea> <columna>\n";
+        echo "  bin/jas lsp:rename <proyecto> <archivo> <línea> <columna> <nombre> [--apply]\n";
         echo "  bin/jas static                                Ejecuta PHPStan sobre JAS y DataCore\n";
         echo "  bin/jas app:validate <application.php>         Valida contratos de producción\n";
         echo "  bin/jas app:docs <application.php> <salida>    Genera documentación técnica\n";
