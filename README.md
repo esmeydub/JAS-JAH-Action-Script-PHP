@@ -61,11 +61,11 @@ JAS turns those concerns into explicit definitions:
 | Continuity | Encrypted signed `.jahb` backups, empty-tree restore, retention and snapshot point-in-time |
 | Web security | Governed router, CSRF, secure headers, rate limiting, safe HTML and forms |
 | Scale foundations | Persistent queues, leases, backpressure, workers, sharding, quorum and fencing |
-| Tooling | Project/domain/type/action generators, analyzer, health checks and generated documentation |
+| Tooling | Generators, analyzer, Language Intelligence Engine, health checks and generated documentation |
 
 Development follows the phase gates in
-[`JAS_MASTER_PLAN.md`](JAS_MASTER_PLAN.md). Phases 1–6 are complete; developer
-tooling and experience is the active phase.
+[`JAS_MASTER_PLAN.md`](JAS_MASTER_PLAN.md). Phases 1–7 are complete; scale and
+operations is the active Phase 8.
 
 ## Architecture
 

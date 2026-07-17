@@ -11,8 +11,9 @@ final class AtomicWorkspaceEditor
 {
     /**
      * @param list<array{file:string,offset:int,length:int,expected:string,replacement:string,hash:string}> $edits
+     * @param list<array{from:string,to:string}> $renames
      */
-    public function apply(string $project, array $edits): void
+    public function apply(string $project, array $edits, array $renames = []): void
     {
         $root = realpath($project);
         if ($root === false || !is_dir($root) || $edits === [] || count($edits) > 1_024) {
@@ -23,7 +24,7 @@ final class AtomicWorkspaceEditor
         @chmod($root . '/.jas-language.lock', 0600);
         try {
             if (!flock($lock, LOCK_EX)) throw new RuntimeException('workspace_edit_lock_failed');
-            $this->applyLocked($root, $edits);
+            $this->applyLocked($root, $edits, $renames);
         } finally {
             flock($lock, LOCK_UN);
             fclose($lock);
@@ -32,8 +33,9 @@ final class AtomicWorkspaceEditor
 
     /**
      * @param list<array{file:string,offset:int,length:int,expected:string,replacement:string,hash:string}> $edits
+     * @param list<array{from:string,to:string}> $renames
      */
-    private function applyLocked(string $root, array $edits): void
+    private function applyLocked(string $root, array $edits, array $renames): void
     {
         $grouped = [];
         foreach ($edits as $edit) {
@@ -41,6 +43,14 @@ final class AtomicWorkspaceEditor
             $grouped[$path][] = $edit;
         }
         ksort($grouped);
+        $targets = [];
+        foreach ($renames as $rename) {
+            $from = $this->safeDefinition($root, $rename['from']);
+            if (!isset($grouped[$from]) || isset($targets[$from])) throw new RuntimeException('workspace_rename_invalid');
+            $target = $this->safeTarget($root, $rename['to']);
+            if (in_array($target, $targets, true)) throw new RuntimeException('workspace_rename_conflict');
+            $targets[$from] = $target;
+        }
         $prepared = [];
         try {
             foreach ($grouped as $path => $fileEdits) {
@@ -60,30 +70,48 @@ final class AtomicWorkspaceEditor
                     $source = substr_replace($source, $edit['replacement'], $offset, $length);
                     $lastOffset = $offset;
                 }
-                $temporary = dirname($path) . '/.' . basename($path) . '.' . bin2hex(random_bytes(8)) . '.jas-lsp';
+                $temporary = dirname($path) . '/.' . basename($path) . '.' . bin2hex(random_bytes(8)) . '.jas-language';
                 $this->writeExclusive($temporary, $source, fileperms($path) & 0777 ?: 0600);
                 (new PhpDefinitionReader())->read($temporary);
-                $prepared[$path] = ['temporary' => $temporary, 'backup' => '', 'source' => file_get_contents($path)];
+                $prepared[$path] = ['temporary' => $temporary, 'backup' => '', 'target' => $targets[$path] ?? $path, 'published' => false];
             }
 
             foreach ($prepared as $path => &$entry) {
-                if (!is_string($entry['source'])) throw new RuntimeException('workspace_edit_read_failed');
                 $backup = dirname($path) . '/.' . basename($path) . '.' . bin2hex(random_bytes(8)) . '.jas-backup';
-                $this->writeExclusive($backup, $entry['source'], 0600);
+                if ($entry['target'] !== $path && (file_exists($entry['target']) || is_link($entry['target']))) {
+                    throw new RuntimeException('workspace_rename_conflict');
+                }
+                if (!rename($path, $backup)) throw new RuntimeException('workspace_edit_backup_failed');
                 $entry['backup'] = $backup;
-                if (!rename($entry['temporary'], $path)) throw new RuntimeException('workspace_edit_replace_failed');
+                if (!rename($entry['temporary'], $entry['target'])) throw new RuntimeException('workspace_edit_replace_failed');
                 $entry['temporary'] = '';
+                $entry['published'] = true;
             }
             unset($entry);
             foreach ($prepared as $entry) @unlink($entry['backup']);
         } catch (Throwable $error) {
             unset($entry);
             foreach (array_reverse($prepared, true) as $path => $entry) {
+                if ($entry['published'] && is_file($entry['target'])) @unlink($entry['target']);
                 if ($entry['backup'] !== '' && is_file($entry['backup'])) @rename($entry['backup'], $path);
                 if ($entry['temporary'] !== '' && is_file($entry['temporary'])) @unlink($entry['temporary']);
             }
             throw $error;
         }
+    }
+
+    private function safeTarget(string $root, string $relative): string
+    {
+        if ($relative === '' || str_contains($relative, "\0") || str_starts_with($relative, '/') || str_contains($relative, '..')
+            || preg_match('/^[A-Z][A-Za-z0-9_]*\.php$/', basename($relative)) !== 1) {
+            throw new RuntimeException('workspace_rename_path_invalid');
+        }
+        $directory = realpath($root . '/' . dirname($relative));
+        $app = realpath($root . '/app');
+        if ($directory === false || $app === false || !str_starts_with($directory, $app . '/')) {
+            throw new RuntimeException('workspace_rename_path_invalid');
+        }
+        return $directory . '/' . basename($relative);
     }
 
     private function safeDefinition(string $root, string $relative): string

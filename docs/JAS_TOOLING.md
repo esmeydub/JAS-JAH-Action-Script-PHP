@@ -89,28 +89,37 @@ están fijadas por SHA completo y los permisos del token se reducen a lectura.
 Un error estático, un contrato roto o una prueba fallida bloquea CI; no se genera
 baseline automática ni se usa Composer, Node, npm o JavaScript.
 
-## Servicio de lenguaje JAS
+## JAS Language Intelligence Engine
 
-El motor de lenguaje indexa directamente las definiciones PHP literales; no las
-ejecuta, no crea índices persistentes y no utiliza JSON. Reconoce tipos, dominios,
-acciones, eventos y capacidades. Todas las posiciones del CLI usan línea y
-columna comenzando en 1.
+El motor de inteligencia indexa directamente las definiciones PHP literales; no
+las ejecuta, no crea índices persistentes y no utiliza JSON. Reconoce tipos,
+dominios, acciones, eventos y capacidades. Todas las posiciones del CLI usan
+línea y columna comenzando en 1.
+
+Es un servicio de lenguaje por CLI con capacidades similares a las de un LSP,
+pero no implementa el Language Server Protocol estándar: no ofrece JSON-RPC por
+stdio, ciclo `initialize`, sincronización de documentos abiertos ni adaptador
+directo para editores. JAS no afirma compatibilidad LSP mientras esa frontera no
+se implemente y verifique sin introducir JSON dentro del motor.
 
 ```bash
-php bin/jas lsp:diagnostics mi-proyecto
-php bin/jas lsp:hover mi-proyecto app/Actions/Crear.php 8 25
-php bin/jas lsp:definition mi-proyecto app/Actions/Crear.php 8 25
-php bin/jas lsp:references mi-proyecto app/Actions/Crear.php 8 25
-php bin/jas lsp:rename mi-proyecto app/Actions/Crear.php 8 25 Solicitud
-php bin/jas lsp:rename mi-proyecto app/Actions/Crear.php 8 25 Solicitud --apply
+php bin/jas language:diagnostics mi-proyecto
+php bin/jas language:hover mi-proyecto app/Actions/Crear.php 8 25
+php bin/jas language:definition mi-proyecto app/Actions/Crear.php 8 25
+php bin/jas language:references mi-proyecto app/Actions/Crear.php 8 25
+php bin/jas language:rename mi-proyecto app/Actions/Crear.php 8 25 Solicitud
+php bin/jas language:rename mi-proyecto app/Actions/Crear.php 8 25 Solicitud --apply
 ```
 
-`lsp:rename` sólo muestra el plan de cambios de forma predeterminada. Con
+`language:rename` sólo muestra el plan de cambios de forma predeterminada. Con
 `--apply`, valida el nuevo identificador según su clase, rechaza colisiones y
 rutas fuera del proyecto, comprueba el hash de cada archivo bajo bloqueo y
 prepara todas las definiciones antes de reemplazarlas. Si una publicación falla,
 restaura las copias verificadas. El renombrado conserva las referencias entre
-entradas, salidas, payloads, dominios y capacidades.
+entradas, salidas, payloads, dominios y capacidades. Para tipos, dominios,
+acciones y eventos también renombra físicamente el archivo de declaración con el
+nombre canónico; la vista previa expone tanto los cambios de contenido como el
+movimiento previsto.
 
 ## Ciclo completo del proyecto
 

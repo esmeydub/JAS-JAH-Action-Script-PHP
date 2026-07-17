@@ -317,8 +317,9 @@ Estado: **completada**
 - El analizador indexa símbolos `App\\`, comprueba rutas PSR-4, resuelve imports internos y rechaza flujos entre `App\\Domains\\<Dominio>` cuando la dependencia no está declarada.
 - `analyze` reconstruye el grafo de producción mediante el lector literal seguro, por lo que contratos, tipos, eventos o dependencias rotos hacen fallar CI sin ejecutar definiciones.
 - PHPStan 2.1.56 está integrado como PHAR externo con SHA-256 fijado, en nivel 5 para todo `src/JAS` y `src/DataCore`, sin Composer ni baseline; el workflow valida PHP 8.2/8.4 antes de aceptar cambios.
-- El servicio de lenguaje nativo ofrece diagnósticos, hover, definición, referencias y rename para tipos, dominios, acciones, eventos y capacidades; trabaja sobre PHP literal sin ejecutar código ni persistir JSON.
-- El rename usa vista previa, validación por clase de símbolo, detección de colisiones, hashes contra cambios concurrentes, bloqueo y reemplazo recuperable de todas las referencias.
+- `JAS Language Intelligence Engine` ofrece por CLI diagnósticos, hover, definición, referencias y rename para tipos, dominios, acciones, eventos y capacidades; trabaja sobre PHP literal sin ejecutar código ni persistir JSON.
+- El proyecto no afirma compatibilidad con el Language Server Protocol estándar: no incorpora JSON-RPC por stdio, ciclo `initialize`, sincronización de documentos abiertos ni integración directa con editores.
+- El rename usa vista previa, validación por clase de símbolo, detección de colisiones, hashes contra cambios concurrentes, bloqueo y reemplazo recuperable de todas las referencias; tipos, dominios, acciones y eventos también reciben un nombre de archivo físico canónico dentro de la misma operación atómica.
 - `app:docs` genera inventario técnico, fingerprint y diagramas Mermaid deterministas; `app:diagram` publica los grafos de dominios y contratos como artefacto independiente.
 - `app:compat` compara dos proyectos sin ejecutar sus definiciones y falla ante rupturas de tipos, acciones, eventos, prefijos, dependencias, capacidades o garantías de auditoría/idempotencia.
 - Cada proyecto nuevo incluye una guía operable y carga JAS mediante `JAS_ROOT` cuando aún no existe autoloader; una prueba end-to-end confirma creación, smoke test, documentación y compatibilidad en un proceso limpio.
@@ -329,15 +330,15 @@ Estado: **completada**
 - Formateador oficial.
 - Analizador con resolución de namespaces y flujo entre dominios.
 - Integración PHPStan.
-- LSP: diagnósticos, hover, definición, referencias y rename.
+- Language Intelligence Engine por CLI: diagnósticos, hover, definición, referencias y rename.
 - Documentación y diagramas generados.
 - Verificación de compatibilidad en CLI.
 
 ### Criterios de salida
 
 - Proyecto nuevo llega a aplicación funcional siguiendo una sola guía.
-- LSP opera sobre tipos, acciones, eventos y capacidades.
-- Renombrado conserva referencias.
+- El motor de inteligencia opera sobre tipos, acciones, eventos y capacidades sin presentarse como LSP estándar.
+- Renombrado conserva referencias y nombres físicos canónicos.
 - CI rechaza contratos rotos y dependencias de dominio ilegales.
 
 ---
@@ -433,7 +434,7 @@ cambio futuro de estado debe actualizar simultáneamente la fase y esta tabla.
 | 4 | Completada | Backup, restauración y continuidad: `php tests/test_datacore_backup.php` |
 | 5 | Completada | Identidad y acceso institucional: `php tests/test_jas_identity.php` y `php tests/test_jas_security.php` |
 | 6 | Completada | JAS Web: `php tests/test_jas_web.php`, `php tests/test_jas_accessibility.php` y `php tests/test_jas_upload.php` |
-| 7 | Completada | Tooling y ciclo de proyecto: `php tests/test_jas_tooling.php`, `php tests/test_jas_language_server.php`, `php tests/test_jas_project_lifecycle.php` y `php bin/jas static` |
+| 7 | Completada | Tooling y ciclo de proyecto: `php tests/test_jas_tooling.php`, `php tests/test_jas_language_engine.php`, `php tests/test_jas_project_lifecycle.php` y `php bin/jas static` |
 | 8 | En progreso | DLQ y reproceso gobernado: `php tests/test_jas_dead_letter.php`; gate transversal: `php tests/run_all.php` |
 | 9 | Pendiente | No iniciada |
 | 10 | Pendiente | No iniciada |

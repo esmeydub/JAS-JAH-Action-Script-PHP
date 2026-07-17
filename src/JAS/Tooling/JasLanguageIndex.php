@@ -7,7 +7,8 @@ namespace Jah\JAS\Tooling;
 use RuntimeException;
 use Throwable;
 
-final class JasLanguageServer
+/** @internal Semantic index and safe editing implementation. */
+final class JasLanguageIndex
 {
     public function __construct(private readonly AtomicWorkspaceEditor $editor = new AtomicWorkspaceEditor()) {}
 
@@ -47,7 +48,7 @@ final class JasLanguageServer
         return array_map(fn(array $item): array => $this->location($item), $index['symbols'][$occurrence['symbol']]['occurrences']);
     }
 
-    /** @return array{applied:bool,kind:string,previous:string,replacement:string,changes:list<array{file:string,line:int,column:int,length:int,role:string}>} */
+    /** @return array{applied:bool,kind:string,previous:string,replacement:string,changes:list<array{file:string,line:int,column:int,length:int,role:string}>,files:list<array{from:string,to:string}>} */
     public function rename(string $project, string $file, int $line, int $column, string $replacement, bool $apply = false): array
     {
         $index = $this->index($project);
@@ -58,7 +59,10 @@ final class JasLanguageServer
         $destination = $symbol['kind'] . ':' . $replacement;
         if ($destination !== $occurrence['symbol'] && isset($index['symbols'][$destination])) throw new RuntimeException('language_symbol_conflict');
         $changes = array_map(fn(array $item): array => $this->location($item), $symbol['occurrences']);
-        if ($replacement === $symbol['name']) return ['applied' => false, 'kind' => $symbol['kind'], 'previous' => $symbol['name'], 'replacement' => $replacement, 'changes' => []];
+        if ($replacement === $symbol['name']) {
+            return ['applied' => false, 'kind' => $symbol['kind'], 'previous' => $symbol['name'], 'replacement' => $replacement, 'changes' => [], 'files' => []];
+        }
+        $renames = $this->physicalRenames($symbol['kind'], $symbol['occurrences'], $replacement);
         if ($apply) {
             $edits = [];
             foreach ($symbol['occurrences'] as $item) {
@@ -67,9 +71,35 @@ final class JasLanguageServer
                     'expected' => $symbol['name'], 'replacement' => $replacement, 'hash' => $item['hash'],
                 ];
             }
-            $this->editor->apply($project, $edits);
+            $this->editor->apply($project, $edits, $renames);
         }
-        return ['applied' => $apply, 'kind' => $symbol['kind'], 'previous' => $symbol['name'], 'replacement' => $replacement, 'changes' => $changes];
+        return ['applied' => $apply, 'kind' => $symbol['kind'], 'previous' => $symbol['name'], 'replacement' => $replacement, 'changes' => $changes, 'files' => $renames];
+    }
+
+    /** @param list<array{file:string,role:string}> $occurrences @return list<array{from:string,to:string}> */
+    private function physicalRenames(string $kind, array $occurrences, string $replacement): array
+    {
+        if (!in_array($kind, ['type', 'domain', 'action', 'event'], true)) return [];
+        $declaration = null;
+        foreach ($occurrences as $occurrence) {
+            if ($occurrence['role'] === 'declaration') {
+                $declaration = $occurrence['file'];
+                break;
+            }
+        }
+        if (!is_string($declaration)) return [];
+        $stem = match ($kind) {
+            'type', 'domain' => $replacement,
+            default => str_replace(' ', '', ucwords(str_replace(['.', ':', '-'], ' ', $replacement))),
+        };
+        if ($kind === 'event') {
+            if (preg_match('/V([1-9][0-9]*)\.php$/', $declaration, $match) !== 1) {
+                throw new RuntimeException('language_event_file_invalid');
+            }
+            $stem .= 'V' . $match[1];
+        }
+        $target = dirname($declaration) . '/' . $stem . '.php';
+        return $target === $declaration ? [] : [['from' => $declaration, 'to' => $target]];
     }
 
     /**
