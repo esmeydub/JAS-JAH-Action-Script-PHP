@@ -25,6 +25,7 @@ $tests = [
     $root . '/tests/test_datacore_backup.php',
     $root . '/tests/test_jas_tooling.php',
     $root . '/tests/test_jas_language_server.php',
+    $root . '/tests/test_jas_project_lifecycle.php',
     $root . '/tests/test_jas_fuzz.php',
     $root . '/tests/test_jas_integrated.php',
     $root . '/tests/test_jas_queue.php',

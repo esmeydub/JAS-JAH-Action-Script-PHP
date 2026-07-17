@@ -112,3 +112,21 @@ rutas fuera del proyecto, comprueba el hash de cada archivo bajo bloqueo y
 prepara todas las definiciones antes de reemplazarlas. Si una publicación falla,
 restaura las copias verificadas. El renombrado conserva las referencias entre
 entradas, salidas, payloads, dominios y capacidades.
+
+## Ciclo completo del proyecto
+
+La guía canónica está en [`JAS_GETTING_STARTED.md`](JAS_GETTING_STARTED.md) y
+también se integra en el `README.md` de cada proyecto nuevo. Un proyecto generado
+puede ejecutar su prueba de humo en un proceso limpio usando únicamente
+`JAS_ROOT` para localizar el runtime.
+
+```bash
+php bin/jas app:docs proyecto JAS_APPLICATION.md
+php bin/jas app:diagram proyecto JAS_APPLICATION.mmd
+php bin/jas app:compat version-desplegada version-candidata
+```
+
+La documentación incorpora inventario, fingerprint y diagramas Mermaid de
+dominios y contratos. `app:compat` falla ante eliminaciones y cambios de tipos,
+prefijos, dependencias, capacidades, auditoría, idempotencia o eventos; las
+adiciones compatibles se reportan como advertencias.

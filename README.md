@@ -203,6 +203,9 @@ php benchmarks/datacore_sql.php 2000
 php benchmarks/datacore_backup.php 5000
 ```
 
+La ruta completa, desde el proyecto vacío hasta documentación y verificación de
+compatibilidad, está en [Crear una aplicación JAS funcional](docs/JAS_GETTING_STARTED.md).
+
 ## Repository guide
 
 - `src/JAS/` — typed definitions, runtime, security, web, queues and cluster primitives

@@ -243,11 +243,29 @@ switch ($command) {
         exit(0);
     case 'app:docs':
         $inspector = new Jah\JAS\Tooling\ApplicationInspector();
-        $app = $inspector->load((string) ($argv[2] ?? ''));
+        $source = (string) ($argv[2] ?? '');
+        $app = is_dir($source) ? $inspector->project($source) : $inspector->load($source);
         $target = (string) ($argv[3] ?? 'JAS_APPLICATION.md');
         $inspector->writeMarkdown($app, $target);
         echo "Documentation created: {$target}\n";
         exit(0);
+    case 'app:diagram':
+        $inspector = new Jah\JAS\Tooling\ApplicationInspector();
+        $source = (string) ($argv[2] ?? '');
+        $app = is_dir($source) ? $inspector->project($source) : $inspector->load($source);
+        $target = (string) ($argv[3] ?? 'JAS_APPLICATION.mmd');
+        $inspector->writeMermaid($app, $target);
+        echo "Diagrams created: {$target}\n";
+        exit(0);
+    case 'app:compat':
+        $inspector = new Jah\JAS\Tooling\ApplicationInspector();
+        $previous = $inspector->project((string) ($argv[2] ?? ''));
+        $next = $inspector->project((string) ($argv[3] ?? ''));
+        $compatibility = (new Jah\JAS\Definition\CompatibilityChecker())->compare($previous->describe(), $next->describe());
+        foreach ($compatibility->breaking as $issue) echo "BREAKING: {$issue}\n";
+        foreach ($compatibility->warnings as $issue) echo "WARNING: {$issue}\n";
+        echo $compatibility->compatible() ? "JAS COMPATIBILITY: PASS\n" : "JAS COMPATIBILITY: BREAKING\n";
+        exit($compatibility->compatible() ? 0 : 1);
     default:
         echo "JAS CLI\n\n";
         echo "  bin/jas test          Ejecuta la suite completa\n";
@@ -272,7 +290,9 @@ switch ($command) {
         echo "  bin/jas lsp:rename <proyecto> <archivo> <línea> <columna> <nombre> [--apply]\n";
         echo "  bin/jas static                                Ejecuta PHPStan sobre JAS y DataCore\n";
         echo "  bin/jas app:validate <application.php>         Valida contratos de producción\n";
-        echo "  bin/jas app:docs <application.php> <salida>    Genera documentación técnica\n";
+        echo "  bin/jas app:docs <proyecto|application.php> <salida.md>\n";
+        echo "  bin/jas app:diagram <proyecto|application.php> <salida.mmd>\n";
+        echo "  bin/jas app:compat <proyecto-anterior> <proyecto-nuevo>\n";
         echo "  bin/jas queue:stats    Estado de la cola persistente\n";
         echo "  bin/jas queue:recover  Recupera leases vencidos\n";
         echo "  bin/jas queue:compact  Compacta el journal de trabajos\n";

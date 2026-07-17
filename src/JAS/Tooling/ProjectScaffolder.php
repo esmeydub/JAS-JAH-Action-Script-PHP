@@ -25,7 +25,7 @@ final class ProjectScaffolder
             '.env.example' => "JAS_ENV=development\nJAS_MASTER_KEY=\n",
             '.gitignore' => "/.env\n/runtime/*\n!/runtime/.gitkeep\n",
             'runtime/.gitkeep' => '',
-            'README.md' => "# {$applicationName}\n\nAplicación organizada y gobernada por JAS.\n",
+            'README.md' => $this->readmeTemplate($applicationName),
         ];
         $created = [];
         foreach ($files as $relative => $content) {
@@ -95,7 +95,12 @@ final class ProjectScaffolder
 
     private function applicationTemplate(string $name): string
     {
-        return "<?php\n\ndeclare(strict_types=1);\n\nuse Jah\\JAS\\Tooling\\GeneratedApplicationLoader;\n\nreturn (new GeneratedApplicationLoader())->load(dirname(__DIR__), '{$name}');\n";
+        return "<?php\n\ndeclare(strict_types=1);\n\nuse Jah\\JAS\\Tooling\\GeneratedApplicationLoader;\n\n"
+            . "if (!class_exists(GeneratedApplicationLoader::class)) {\n"
+            . "    \$jasRoot = realpath((string) getenv('JAS_ROOT'));\n"
+            . "    if (\$jasRoot === false || !is_file(\$jasRoot . '/app/bootstrap.php')) throw new RuntimeException('JAS_ROOT is invalid');\n"
+            . "    require_once \$jasRoot . '/app/bootstrap.php';\n"
+            . "}\n\nreturn (new GeneratedApplicationLoader())->load(dirname(__DIR__), '{$name}');\n";
     }
     private function publicTemplate(): string
     {
@@ -121,5 +126,48 @@ PHP
     private function testTemplate(): string
     {
         return "<?php\n\ndeclare(strict_types=1);\n\n\$app = require dirname(__DIR__) . '/app/application.php';\n\$app->validate();\necho \"JAS APP: PASS\\n\";\n";
+    }
+
+    private function readmeTemplate(string $name): string
+    {
+        return str_replace('{APP}', $name, <<<'MARKDOWN'
+# {APP}
+
+Aplicación organizada, tipada y gobernada por JAS — JAH Action Script PHP.
+
+## Requisitos
+
+- PHP 8.2 o superior.
+- Extensión Sodium para producción.
+- Una copia local verificada de JAS.
+
+## Inicio único
+
+```bash
+export JAS_ROOT=/ruta/segura/JAS-JAH-Action-Script-PHP
+php "$JAS_ROOT/bin/jas" make:domain . Tramites tramite
+php "$JAS_ROOT/bin/jas" make:type . Solicitud
+php "$JAS_ROOT/bin/jas" make:action . Tramites tramite.crear Solicitud Solicitud tramites.create
+php "$JAS_ROOT/bin/jas" make:event . Tramites tramite.creado Solicitud 1
+php "$JAS_ROOT/bin/jas" format . --check
+php "$JAS_ROOT/bin/jas" analyze .
+php tests/smoke.php
+php "$JAS_ROOT/bin/jas" app:docs . JAS_APPLICATION.md
+```
+
+Las definiciones viven en `app/Domains`, `app/Types`, `app/Actions` y
+`app/Events`. JAS las interpreta como PHP literal sin ejecutar contenido
+arbitrario. No se requieren manifiestos JSON.
+
+Para desarrollo HTTP local:
+
+```bash
+JAS_ROOT="$JAS_ROOT" php -S 127.0.0.1:8080 -t public
+```
+
+Antes de publicar, ejecuta `analyze`, la prueba de humo y la comparación de
+compatibilidad contra la versión desplegada.
+MARKDOWN
+        ) . "\n";
     }
 }

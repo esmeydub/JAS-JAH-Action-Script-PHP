@@ -288,7 +288,7 @@ Estado: **completada**
 
 ## Fase 7 — Herramientas y experiencia de desarrollo
 
-Estado: **en progreso**
+Estado: **completada**
 
 ### Avance verificado
 
@@ -302,6 +302,9 @@ Estado: **en progreso**
 - PHPStan 2.x está integrado en nivel 5 para todo `src/JAS` y `src/DataCore`, sin baseline; el workflow usa acciones fijadas por SHA y valida PHP 8.2/8.4 antes de aceptar cambios.
 - El servicio de lenguaje nativo ofrece diagnósticos, hover, definición, referencias y rename para tipos, dominios, acciones, eventos y capacidades; trabaja sobre PHP literal sin ejecutar código ni persistir JSON.
 - El rename usa vista previa, validación por clase de símbolo, detección de colisiones, hashes contra cambios concurrentes, bloqueo y reemplazo recuperable de todas las referencias.
+- `app:docs` genera inventario técnico, fingerprint y diagramas Mermaid deterministas; `app:diagram` publica los grafos de dominios y contratos como artefacto independiente.
+- `app:compat` compara dos proyectos sin ejecutar sus definiciones y falla ante rupturas de tipos, acciones, eventos, prefijos, dependencias, capacidades o garantías de auditoría/idempotencia.
+- Cada proyecto nuevo incluye una guía operable y carga JAS mediante `JAS_ROOT` cuando aún no existe autoloader; una prueba end-to-end confirma creación, smoke test, documentación y compatibilidad en un proceso limpio.
 
 ### Alcance
 
@@ -405,7 +408,7 @@ cambio futuro de estado debe actualizar simultáneamente la fase y esta tabla.
 | 4 | Completada | Backup, restauración y continuidad: `php tests/test_datacore_backup.php` |
 | 5 | Completada | Identidad y acceso institucional: `php tests/test_jas_identity.php` y `php tests/test_jas_security.php` |
 | 6 | Completada | JAS Web: `php tests/test_jas_web.php`, `php tests/test_jas_accessibility.php` y `php tests/test_jas_upload.php` |
-| 7 | En progreso | Tooling, PHPStan y servicio de lenguaje: `php tests/test_jas_tooling.php`, `php tests/test_jas_language_server.php` y `php bin/jas static` |
+| 7 | Completada | Tooling y ciclo de proyecto: `php tests/test_jas_tooling.php`, `php tests/test_jas_language_server.php`, `php tests/test_jas_project_lifecycle.php` y `php bin/jas static` |
 | 8 | Pendiente | No iniciada |
 | 9 | Pendiente | No iniciada |
 | 10 | Pendiente | No iniciada |
@@ -415,7 +418,6 @@ registrado es `JAS SUITE: PASS`.
 
 ## Próxima acción obligatoria
 
-Completar **Fase 7 — Herramientas y experiencia de desarrollo**: generación de
-documentación y diagramas, verificación de compatibilidad en CLI y guía única de
-proyecto funcional. No iniciar la Fase 8 hasta cerrar y registrar sus criterios
-de salida.
+Iniciar **Fase 8 — Escala y operación** por dead-letter queues y reproceso con
+doble control, conservando contexto e idempotencia. No iniciar la Fase 9 hasta
+cerrar y registrar todos los criterios de salida de la Fase 8.
