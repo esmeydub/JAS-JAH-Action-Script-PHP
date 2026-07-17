@@ -26,6 +26,11 @@ final class OutboxJournal
 
     public function pending(): array
     {
+        return $this->locked(fn(): array => $this->pendingUnlocked());
+    }
+
+    private function pendingUnlocked(): array
+    {
         $pending = [];
         foreach ($this->entries() as $entry) {
             $id = (string) ($entry['request_id'] ?? '');
@@ -33,6 +38,23 @@ final class OutboxJournal
             elseif (($entry['type'] ?? '') === 'APPLIED') unset($pending[$id]);
         }
         return $pending;
+    }
+
+    /** @return array{compacted:bool,entries_before:int,entries_after:int,bytes_before:int,dry_run:bool} */
+    public function compact(bool $dryRun = true): array
+    {
+        return $this->locked(function () use ($dryRun): array {
+            $entries = $this->entries();
+            $pending = [];
+            foreach ($entries as $entry) {
+                $id = (string) ($entry['request_id'] ?? '');
+                if (($entry['type'] ?? '') === 'PREPARED') $pending[$id] = $entry;
+                elseif (($entry['type'] ?? '') === 'APPLIED') unset($pending[$id]);
+            }
+            $bytes = is_file($this->file) ? (int) filesize($this->file) : 0;
+            if (!$dryRun) $this->replaceUnlocked(array_values($pending));
+            return ['compacted' => !$dryRun, 'entries_before' => count($entries), 'entries_after' => count($pending), 'bytes_before' => $bytes, 'dry_run' => $dryRun];
+        });
     }
 
     private function entries(): array
@@ -49,9 +71,7 @@ final class OutboxJournal
 
     private function append(array $entry): void
     {
-        $handle = fopen($this->lock, 'c+b');
-        if ($handle === false || !flock($handle, LOCK_EX)) throw new RuntimeException('outbox_lock_failed');
-        try {
+        $this->locked(function () use ($entry): void {
             $line = PhpSerializer::encode($entry) . "\n";
             $journal = fopen($this->file, 'ab');
             if ($journal === false) throw new RuntimeException('outbox_open_failed');
@@ -60,6 +80,30 @@ final class OutboxJournal
                 if (function_exists('fsync')) @fsync($journal);
             } finally { fclose($journal); }
             @chmod($this->file, 0600);
-        } finally { flock($handle, LOCK_UN); fclose($handle); }
+        });
+    }
+
+    /** @param list<array> $entries */
+    private function replaceUnlocked(array $entries): void
+    {
+        $temporary = $this->file . '.compact.' . bin2hex(random_bytes(4));
+        $handle = fopen($temporary, 'xb');
+        if ($handle === false) throw new RuntimeException('outbox_compaction_prepare_failed');
+        try {
+            foreach ($entries as $entry) {
+                $line = PhpSerializer::encode($entry) . "\n";
+                if (fwrite($handle, $line) !== strlen($line)) throw new RuntimeException('outbox_compaction_write_failed');
+            }
+            if (!fflush($handle) || (function_exists('fsync') && !@fsync($handle))) throw new RuntimeException('outbox_compaction_sync_failed');
+        } finally { fclose($handle); }
+        if (!rename($temporary, $this->file)) { @unlink($temporary); throw new RuntimeException('outbox_compaction_publish_failed'); }
+        @chmod($this->file, 0600);
+    }
+
+    private function locked(callable $operation): mixed
+    {
+        $handle = fopen($this->lock, 'c+b');
+        if ($handle === false || !flock($handle, LOCK_EX)) throw new RuntimeException('outbox_lock_failed');
+        try { return $operation(); } finally { flock($handle, LOCK_UN); fclose($handle); }
     }
 }

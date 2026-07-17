@@ -58,6 +58,36 @@ switch ($command) {
         echo "Regular writes: " . ($report['accepting_regular_writes'] ? 'YES' : 'NO') . "\n";
         echo "Essential writes: " . ($report['accepting_essential_writes'] ? 'YES' : 'NO') . "\n";
         exit($report['level'] === Jah\JAS\Observability\DiskPressureGuard::EMERGENCY ? 2 : 0);
+    case 'retention:run':
+        $apply = in_array('--apply', $argv, true);
+        $force = in_array('--force', $argv, true);
+        $scheduler = new Jah\JAS\Observability\RetentionScheduler(
+            $root . '/runtime/maintenance',
+            max(60, (int) (getenv('JAS_RETENTION_INTERVAL_SECONDS') ?: 3_600)),
+        );
+        $logger = new Jah\JAS\Observability\JahLogger($root . '/runtime/logs/app.jahl');
+        $wal = new Jah\JAS\Persistence\WalJournal($root . '/runtime/wal');
+        $outbox = new Jah\JAS\Persistence\OutboxJournal($root . '/runtime/outbox');
+        $queue = new Jah\JAS\Queue\PersistentJobQueue(
+            $root . '/runtime/queue', 10_000, 30,
+            Jah\JAS\Observability\DiskPressureGuard::fromEnvironment($root),
+        );
+        $scheduler
+            ->task('logs.rotate', static fn(bool $write): array => $logger->rotate(
+                max(1_024, (int) (getenv('JAS_LOG_MAX_BYTES') ?: 16_777_216)),
+                max(1, min(100, (int) (getenv('JAS_LOG_KEEP_ARCHIVES') ?: 14))),
+                max(60, (int) (getenv('JAS_LOG_MAX_AGE_SECONDS') ?: 2_592_000)),
+                !$write,
+            ))
+            ->task('wal.compact', static fn(bool $write): array => $wal->compact(!$write))
+            ->task('outbox.compact', static fn(bool $write): array => $outbox->compact(!$write))
+            ->task('queue.compact', static function (bool $write) use ($queue): array {
+                $before = $queue->stats();
+                if ($write) $queue->compact(true);
+                return ['compacted' => $write, 'before' => $before, 'dead_letters_retained' => $before['dead_letters']];
+            });
+        jas_print($scheduler->run($apply, $force));
+        exit(0);
     case 'queue:stats':
         $queue = new Jah\JAS\Queue\PersistentJobQueue($root . '/runtime/queue');
         jas_print($queue->stats());
@@ -308,6 +338,7 @@ switch ($command) {
         echo "  bin/jas test          Ejecuta la suite completa\n";
         echo "  bin/jas health        Verifica capacidades locales\n";
         echo "  bin/jas disk:status   Muestra presión de disco y admisión de escrituras\n";
+        echo "  bin/jas retention:run [--apply] [--force]  Mantiene logs y journals seguros\n";
         echo "  bin/jas wal:pending    Muestra transacciones sin cerrar\n";
         echo "  bin/jas outbox:pending Muestra publicaciones preparadas pendientes\n";
         echo "  bin/jas datacore:compact <coleccion> [--apply] [--drop-backup]\n";

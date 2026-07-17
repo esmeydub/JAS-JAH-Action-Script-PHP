@@ -165,6 +165,8 @@ final class PersistentJobQueue
     {
         $this->locked(function () use ($keepTerminal): void {
             $jobs = $this->rebuildUnlocked();
+            $estimated = is_file($this->journal) ? (int) filesize($this->journal) + 4_096 : 4_096;
+            $this->writeAdmission?->assertWritable('queue.journal.compact', min($estimated, 1_073_741_824), true);
             $temp = $this->journal . '.compact.' . bin2hex(random_bytes(4));
             $h = fopen($temp, 'xb');
             if ($h === false) throw new RuntimeException('No se pudo crear compactación de cola');

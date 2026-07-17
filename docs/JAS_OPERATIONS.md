@@ -109,3 +109,37 @@ emite la transición de recuperación a `normal`. El adaptador de alertas extern
 debe enviarla al sistema institucional sin escribir de nuevo en el mismo disco
 afectado. `/health/ready` permite que el orquestador retire el nodo cuando llega
 a `critical`, sin revelar métricas internas al público.
+
+## Retención y compactación automática
+
+```bash
+php bin/jas retention:run --force
+php bin/jas retention:run --apply
+```
+
+El primer comando muestra un plan sin escribir. `--apply` ejecuta únicamente si
+ha vencido `JAS_RETENTION_INTERVAL_SECONDS`, cuyo valor predeterminado es una
+hora; `--force` permite una revisión manual fuera del intervalo. Un timer del
+sistema debe invocar periódicamente el comando con `--apply`. El scheduler usa
+un lock interproceso y sólo publica su estado después de completar todas las
+tareas, por lo que una interrupción vuelve a intentar el ciclo.
+
+Las políticas disponibles son deliberadamente específicas:
+
+- `JahLogger` rota al alcanzar `JAS_LOG_MAX_BYTES`, conserva como máximo
+  `JAS_LOG_KEEP_ARCHIVES` y elimina archivos más antiguos que
+  `JAS_LOG_MAX_AGE_SECONDS`. Los valores predeterminados son 16 MiB, 14 archivos
+  y 30 días. Cada archivo se analiza completamente antes de rotar o borrar.
+- WAL se compacta conservando exclusivamente los `BEGIN` que no tienen
+  `COMMIT` ni `ABORT`.
+- Outbox conserva exclusivamente publicaciones `PREPARED` sin `APPLIED`.
+- La cola publica nuevamente su estado actual y conserva siempre la DLQ.
+
+Toda publicación usa temporal en el mismo filesystem, `flush`, `fsync`, lock y
+rename atómico. Un archivo corrupto detiene la tarea sin reemplazar la fuente.
+La compactación de cola usa la reserva esencial del control de disco.
+
+Auditoría, eventos encadenados, evidencia de destrucción de claves y replicación
+no entran en esta retención automática: truncarlos rompería evidencia o cursores.
+Sólo podrán archivarse mediante un procedimiento firmado, verificable y con
+política legal explícita.
