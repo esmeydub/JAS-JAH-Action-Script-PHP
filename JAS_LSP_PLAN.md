@@ -1,6 +1,6 @@
 # Plan normativo del servidor LSP de JAS
 
-Estado: **en progreso; L0 completada, L1 es la siguiente acción**
+Estado: **en progreso; L0–L1 completadas, L2 es la siguiente acción**
 
 ## Objetivo y frontera inmutable
 
@@ -36,7 +36,7 @@ JASL; el modelo de amenazas está en `docs/JAS_LSP_SECURITY.md`.
 
 ## Fase L1 — Documentos y posiciones
 
-Estado: **pendiente; siguiente acción obligatoria**
+Estado: **completada**
 
 - Crear `DocumentStore` con URI, versión, contenido, hash y estado.
 - El documento abierto recibido por `didOpen`/`didChange` es autoritativo y no se relee del disco.
@@ -45,9 +45,15 @@ Estado: **pendiente; siguiente acción obligatoria**
 - Negociar `positionEncoding`; soportar obligatoriamente UTF-16 y probar Unicode multibyte.
 - Limitar bytes, líneas, documentos abiertos y memoria total.
 
-Cierre: diagnósticos sobre contenido sin guardar y posiciones correctas con acentos, emoji y Unicode no BMP.
+Cierre verificado: `DocumentStore` mantiene contenido autoritativo, versiones y
+hashes con límites de documentos, bytes y líneas; confina URI `file` mediante
+paths canónicos y rechaza traversal/symlinks externos. `LanguagePositionCodec`
+convierte UTF-8, UTF-16 y UTF-32 sin dividir caracteres. El índice consume
+overlays, archivos nuevos y diagnósticos sin guardar sin modificar el disco.
 
 ## Fase L2 — Servicio binario PHP
+
+Estado: **pendiente; siguiente acción obligatoria**
 
 Crear `php bin/jas language:serve --stdio` para:
 

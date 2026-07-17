@@ -1,6 +1,6 @@
 # Frontera de seguridad del servidor de lenguaje JAS
 
-Estado: contrato L0 implementado. El bridge LSP todavía no existe y JAS aún no
+Estado: contratos L0 y documentos/posiciones L1 implementados. El bridge LSP todavía no existe y JAS aún no
 se presenta como servidor LSP estándar.
 
 ## Procesos y zonas de confianza
@@ -94,7 +94,8 @@ implementar posiciones y rangos Unicode en L1.
 
 - La clave efímera por descriptor heredado se implementará junto con el servicio
   y el bridge; hoy sólo existe el contrato firmado reusable de JASB.
-- El confinamiento canónico de URI, `DocumentStore` y conversión UTF-16 son L1.
+- `DocumentStore` y la conversión UTF-16 están implementados; sincronización
+  incremental por rangos permanece deshabilitada hasta una ampliación posterior.
 - El proceso `language:serve`, lifecycle y multiplexación son L2/L3.
 - La validación C actual comprueba framing TLV y límites estructurales; el bridge
   añadirá UTF-8 estricto, nombres de campo y semántica antes de publicar binarios.

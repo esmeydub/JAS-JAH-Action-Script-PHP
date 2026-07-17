@@ -12,7 +12,13 @@ namespace Jah\JAS\Tooling;
  */
 final class JasLanguageEngine
 {
-    public function __construct(private readonly JasLanguageIndex $implementation = new JasLanguageIndex()) {}
+    private readonly JasLanguageIndex $implementation;
+
+    public function __construct(?JasLanguageIndex $implementation = null, ?DocumentStore $documents = null)
+    {
+        if ($implementation !== null && $documents !== null) throw new \InvalidArgumentException('language_engine_dependencies_conflict');
+        $this->implementation = $implementation ?? new JasLanguageIndex(documents: $documents);
+    }
 
     /** @return array{ok:bool,files:int,diagnostics:list<array{code:string,file:string,line:int,message:string}>} */
     public function diagnostics(string $project): array

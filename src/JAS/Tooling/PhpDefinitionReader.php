@@ -17,6 +17,12 @@ final class PhpDefinitionReader
     {
         $source = @file_get_contents($file);
         if (!is_string($source) || strlen($source) > 1_048_576) throw new RuntimeException('generated_definition_read_failed');
+        return $this->readSource($source);
+    }
+
+    public function readSource(string $source): array
+    {
+        if (strlen($source) > 1_048_576 || preg_match('//u', $source) !== 1) throw new RuntimeException('generated_definition_read_failed');
         $prefix = '/\A<\?php\s+declare\s*\(\s*strict_types\s*=\s*1\s*\)\s*;\s*return\s+/A';
         if (preg_match($prefix, $source, $match) !== 1) throw new RuntimeException('generated_definition_prefix_invalid');
         $expression = substr($source, strlen($match[0]));

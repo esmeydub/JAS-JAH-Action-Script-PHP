@@ -10,12 +10,28 @@ use Throwable;
 /** @internal Semantic index and safe editing implementation. */
 final class JasLanguageIndex
 {
-    public function __construct(private readonly AtomicWorkspaceEditor $editor = new AtomicWorkspaceEditor()) {}
+    public function __construct(
+        private readonly AtomicWorkspaceEditor $editor = new AtomicWorkspaceEditor(),
+        private readonly ?DocumentStore $documents = null,
+    ) {}
 
     /** @return array{ok:bool,files:int,diagnostics:list<array{code:string,file:string,line:int,message:string}>} */
     public function diagnostics(string $project): array
     {
-        return (new ProjectAnalyzer())->analyze($project);
+        $report = (new ProjectAnalyzer())->analyze($project);
+        if ($this->documents === null) return $report;
+        $root = realpath($project);
+        if ($root === false) throw new RuntimeException('language_project_invalid');
+        foreach ($this->documents->sourcesFor($root) as $file => $source) {
+            if (preg_match('#^app/(?:Domains|Types|Actions|Events)/[^/]+\.php$#', $file) !== 1) continue;
+            try {
+                (new PhpDefinitionReader())->readSource($source);
+            } catch (Throwable) {
+                $report['ok'] = false;
+                $report['diagnostics'][] = ['code' => 'JASL001', 'file' => $file, 'line' => 1, 'message' => 'Invalid open JAS definition'];
+            }
+        }
+        return $report;
     }
 
     /** @return array{kind:string,name:string,detail:string,location:array{file:string,line:int,column:int,length:int,role:string}}|null */
@@ -111,18 +127,24 @@ final class JasLanguageIndex
         if ($root === false || !is_dir($root)) throw new RuntimeException('language_project_invalid');
         $sources = [];
         $records = [];
+        $overlays = $this->documents?->sourcesFor($root) ?? [];
         foreach (['Domains', 'Types', 'Actions', 'Events'] as $directory) {
             $files = glob($root . '/app/' . $directory . '/*.php') ?: [];
-            sort($files);
-            foreach ($files as $path) {
+            $relativeFiles = [];
+            foreach ($files as $path) $relativeFiles[ltrim(substr($path, strlen($root)), '/')] = $path;
+            foreach ($overlays as $relative => $_source) {
+                if (str_starts_with($relative, 'app/' . $directory . '/') && substr_count($relative, '/') === 2
+                    && str_ends_with($relative, '.php')) $relativeFiles[$relative] = $root . '/' . $relative;
+            }
+            ksort($relativeFiles, SORT_STRING);
+            foreach ($relativeFiles as $relative => $path) {
+                $source = $overlays[$relative] ?? @file_get_contents($path);
+                if (!is_string($source)) continue;
                 try {
-                    $definition = (new PhpDefinitionReader())->read($path);
+                    $definition = (new PhpDefinitionReader())->readSource($source);
                 } catch (Throwable) {
                     continue;
                 }
-                $source = file_get_contents($path);
-                if (!is_string($source)) continue;
-                $relative = ltrim(substr($path, strlen($root)), '/');
                 $sources[$relative] = $source;
                 $records[] = ['directory' => $directory, 'file' => $relative, 'source' => $source, 'definition' => $definition, 'values' => $this->valueLocations($source)];
             }
@@ -211,9 +233,13 @@ final class JasLanguageIndex
     {
         if ($line < 1 || $column < 1 || str_contains($file, "\0") || str_contains($file, '..')) throw new RuntimeException('language_position_invalid');
         $root = $index['root'];
-        $path = str_starts_with($file, '/') ? realpath($file) : realpath($root . '/' . ltrim($file, '/'));
-        if ($path === false || !str_starts_with($path, $root . '/')) throw new RuntimeException('language_file_invalid');
-        $relative = ltrim(substr($path, strlen($root)), '/');
+        $relative = ltrim($file, '/');
+        if (str_starts_with($file, '/')) {
+            $path = realpath($file);
+            if ($path === false || !str_starts_with($path, $root . '/')) throw new RuntimeException('language_file_invalid');
+            $relative = ltrim(substr($path, strlen($root)), '/');
+        }
+        if (!isset($index['sources'][$relative])) throw new RuntimeException('language_file_invalid');
         foreach ($index['occurrences'] as $occurrence) {
             if ($occurrence['file'] === $relative && $occurrence['line'] === $line
                 && $column >= $occurrence['column'] && $column < $occurrence['column'] + $occurrence['length']) return $occurrence;
