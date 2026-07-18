@@ -198,10 +198,11 @@ limitations.
 OpenAI Build Week requires the submission to explain its relationship with
 **GPT-5.6**. For JAS, GPT-5.6 belongs to the hackathon's development-time review
 and evaluation requirement; it is not embedded in the product and is not a
-runtime dependency. This README does not relabel the Codex SOL work as a
-GPT-5.6 session. A separate GPT-5.6 review or demo and its `/feedback` Session ID
-must be reported in the submission only after that session has actually been
-completed.
+runtime dependency. The primary Codex conversation in which JAS was built has
+been closed through `/feedback`; its Session ID is retained for the private,
+required Devpost field and is intentionally not published in this repository.
+The demo video remains pending and must explain honestly how Codex and GPT-5.6
+participated in the development-time workflow.
 
 Important human-directed decisions were preserved throughout the work:
 

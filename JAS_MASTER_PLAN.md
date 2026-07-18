@@ -608,3 +608,15 @@ validación independiente no puede autodeclararse desde este repositorio.
 - Plan de implementación interno: completado. Sólo permanece el assurance
   externo de Fase 9, que requiere especialistas independientes y un despliegue
   objetivo; no existe pendiente crítico o alto conocido en la verificación interna.
+
+## Estado de entrega OpenAI Build Week
+
+- Código, documentación, portal de referencia, pruebas y CI: completados.
+- Session ID de `/feedback` de la conversación principal: obtenido y reservado
+  para el campo privado de Devpost; no se publica en el repositorio.
+- Ficha pública y respuestas técnicas de Devpost: preparadas.
+- Único entregable pendiente antes del envío final: video público de demostración
+  de menos de tres minutos que cubra el producto y el uso de Codex y GPT-5.6.
+- La revisión criptográfica y el penetration test externos de Fase 9 permanecen
+  como assurance independiente posterior; no se confunden con el video ni con
+  la terminación de la implementación interna.
