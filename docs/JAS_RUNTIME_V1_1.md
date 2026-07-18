@@ -1,6 +1,6 @@
 # JAS Runtime 1.1 — ejecución duradera
 
-Esta versión introdujo la base de ejecución duradera que continúa en JAS 1.4.0.
+Esta versión introdujo la base de ejecución duradera que continúa en JAS 2.0.0.
 
 ## Componentes
 

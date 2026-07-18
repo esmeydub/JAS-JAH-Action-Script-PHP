@@ -8,7 +8,7 @@ same boundary as the C and C++ SDKs.
 ## A secure, typed application runtime for PHP
 
 **Hackathon category:** Developer Tools
-**Status:** working prototype, JAS 1.4.0
+**Status:** JAS 2.0.0 — stable public API and deployable reference application
 **Development workflow:** Codex SOL, Medium reasoning effort
 **Build Week disclosure:** GPT-5.6 is part of the required hackathon evaluation,
 not a JAS runtime dependency
@@ -63,12 +63,13 @@ JAS turns those concerns into explicit definitions:
 | Scale foundations | Persistent queues, leases, backpressure, workers, sharding, quorum and fencing |
 | Operations | Health probes, read-only secure panel, disk admission, retention and signed JASB telemetry export |
 | Tooling | Generators, analyzer, Language Intelligence Engine, stable diagnostics, core sealing, health checks and generated documentation |
+| Reference application | Eight governed domains, institutional login/RBAC, DataCore, isolated queues, audit and verified restore |
 
 Development follows the phase gates in
-[`JAS_MASTER_PLAN.md`](JAS_MASTER_PLAN.md). Phases 1–8, the external standard LSP
-gate and Phase 9 internal security verification are complete. Independent
-cryptographic review and penetration testing remain explicitly pending; Phase
-10 is the next implementation phase.
+[`JAS_MASTER_PLAN.md`](JAS_MASTER_PLAN.md). Phases 1–10, the external standard
+LSP gate and Phase 9 internal security verification are implemented. Independent
+cryptographic review and penetration testing remain explicitly pending and are
+not represented as project certification.
 
 ## Architecture
 
@@ -143,7 +144,7 @@ process death and restart, truncated transport, key rotation under load and
 adversarial forms. Its threat model and OWASP ASVS-oriented control map are in
 [`docs/JAS_SECURITY_VERIFICATION.md`](docs/JAS_SECURITY_VERIFICATION.md).
 
-### Run the reference web application
+### Run the minimal web example
 
 ```bash
 php -S 127.0.0.1:8080 examples/social_network.php
@@ -158,14 +159,32 @@ http://127.0.0.1:8080/publicacion?id=POST-1
 The example defines its types, domains, action contract, required capability,
 audit behavior, handler and safe HTML response using public JAS APIs.
 
+### Run the complete JAS 2.0 reference portal
+
+```bash
+cd examples/reference_portal
+export JAS_ROOT="$OLDPWD"
+export PORTAL_MASTER_KEY="$(openssl rand -base64 48)"
+export PORTAL_IDENTITY_PEPPER="$(openssl rand -hex 48)"
+export PORTAL_ADMIN_PASSWORD='reemplace-por-un-secreto-largo'
+php bin/install.php
+unset PORTAL_ADMIN_PASSWORD
+php -S 127.0.0.1:8080 -t public
+```
+
+The portal uses form input and `text/plain` responses, not JSON. Installation,
+routes, operations and disaster recovery are documented in
+[`examples/reference_portal/README.md`](examples/reference_portal/README.md).
+
 ## Suggested three-minute demo path
 
-1. Run `php bin/jas health` to show the local runtime and disabled external AI.
-2. Open `examples/social_network.php` and show its typed action and capability.
-3. Run the example and request one publication.
-4. Run `php tests/test_datacore_database.php` to demonstrate DataCore controls.
-5. Run `php tests/test_datacore_backup.php` to demonstrate tamper rejection and restore.
-6. Show the SQL attack tests: malicious SQL values remain data and SQL changes do not contaminate DataCore.
+1. Run `php bin/jas health` to show JAS 2.0 and the local pure-PHP runtime.
+2. Run `php bin/jas analyze examples/reference_portal` to validate its definitions.
+3. Show its eight domains and governed action contracts.
+4. Run `php tests/test_jas_reference_portal.php` to demonstrate login, RBAC,
+   publication, moderation, feed, messaging, queues, audit, load and restore.
+5. Show the SQL attack tests: malicious SQL values remain data and SQL changes
+   do not contaminate DataCore.
 
 ## Codex SOL workflow and the role of GPT-5.6
 
@@ -262,11 +281,13 @@ compatibilidad, está en [Crear una aplicación JAS funcional](docs/JAS_GETTING_
 - `src/JAS/` — typed definitions, runtime, security, web, queues and cluster primitives
 - `src/DataCore/` — database, transactions, indexes, SQL Mirror and continuity
 - `examples/social_network.php` — smallest complete governed web example
+- `examples/reference_portal/` — deployable JAS 2.0 institutional reference portal
 - `tests/` — executable security, recovery, fuzz and integration evidence
 - `benchmarks/` — reproducible local measurements
 - `docs/` — subsystem and operational documentation
 - `sdk/` — experimental C and C++ protocol SDKs
 - `JAS_MASTER_PLAN.md` — ordered completion plan and phase evidence
+- `docs/API_STATUS.md` and `docs/JAS_2_0_MIGRATION.md` — frozen API and upgrade contract
 
 ## Security model and limitations
 

@@ -1,6 +1,6 @@
 # Backup y continuidad de DataCore
 
-Estado: **Fase 4 en progreso**.
+Estado: **estable en JAS 2.0; Fase 4 completada**.
 
 `DataCoreBackupService` crea archivos `.jahb` nativos, sin JSON. Cada archivo incluido se cifra con propósito y ruta propios; el manifiesto completo se firma. La publicación usa archivo temporal, `flush`, `fsync` cuando está disponible y `rename` atómico.
 

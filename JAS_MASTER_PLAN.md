@@ -1,6 +1,6 @@
 # Plan maestro de JAS
 
-Estado: **activo y normativo**
+Estado: **implementación interna completada; validación externa de Fase 9 pendiente**
 Producto: **JAS — JAH Action Script PHP**
 Objetivo: capa organizada, tipada y segura sobre PHP para aplicaciones web empresariales y gubernamentales sostenibles, con DataCore como base de datos nativa.
 
@@ -507,7 +507,7 @@ Estado: **verificación interna completada; validación externa pendiente**
 
 ## Fase 10 — Aplicación de referencia y estabilización 2.0
 
-Estado: **pendiente**
+Estado: **completada**
 
 ### Alcance
 
@@ -525,6 +525,39 @@ Estado: **pendiente**
 - Feed, moderación y notificaciones escalan independientemente.
 - Documentación de instalación, desarrollo, operación y desastre completa.
 - Checklist de definición de terminado satisfecho.
+
+### Evidencia de cierre
+
+- `examples/reference_portal` implementa un portal institucional reproducible
+  con ocho dominios declarados: Identidad, Usuarios, Publicaciones, Feeds,
+  Mensajería, Moderación, Notificaciones y Auditoría.
+- Los contratos generados, capacidades y `GovernedRuntime` obligan el recorrido
+  tipado y auditado; la interfaz HTTP no accede directamente a DataCore.
+- `InstitutionalIdentityService` conserva usuarios, roles, sesiones y permisos
+  cifrados en DataCore. Sólo `admin` puede registrar ciudadanos, moderadores y
+  auditores; la aplicación no permite crear otro administrador por esa acción.
+- Publicaciones, mensajes y notificaciones usan colecciones tipadas, referencias
+  e índices. Campos sensibles permanecen cifrados y DataCore es autoritativo.
+- Feed, moderación y notificaciones usan tres `PersistentJobQueue` separadas;
+  sus métricas y capacidad no comparten journal ni directorio operativo.
+- El transporte web usa formularios y texto plano bajo `Router` y headers
+  seguros; no introduce JSON, JavaScript, Node, Composer ni acceso alterno.
+- `tests/test_jas_reference_portal.php` verifica end-to-end login, RBAC,
+  idempotencia, publicación, moderación, feed, mensajería, notificaciones,
+  auditoría, rechazo no autorizado y rechazo de escalamiento de rol.
+- La prueba ejecuta 80 publicaciones gobernadas, confirma aislamiento de las
+  tres colas y consulta el feed mediante índice, sin prometer rendimiento no
+  medido en hardware distinto.
+- El backup cifrado incluye segmentos, índices secundarios y locks bajo el árbol
+  DataCore; se verifica, restaura en vacío y recupera sesión, permisos y 80
+  publicaciones funcionales.
+- Una actualización con campo opcional pasa `CompatibilityChecker`; la guía
+  `docs/JAS_2_0_MIGRATION.md` documenta preflight, canario y rollback.
+- `docs/API_STATUS.md` congela la superficie pública 2.0 y separa claramente los
+  módulos experimentales. `VERSION` y `RELEASE_2.0.0.md` publican JAS 2.0.0.
+- `examples/reference_portal/README.md` documenta instalación, desarrollo,
+  rutas, operación, actualización y recuperación de desastre.
+- Formato, análisis, smoke, tooling y prueba integral específica: PASS.
 
 ---
 
@@ -545,17 +578,20 @@ cambio futuro de estado debe actualizar simultáneamente la fase y esta tabla.
 | 8 | Completada | Operación segura y calificación acelerada: `php tests/test_jas_operations_qualification.php 500`; 10,500/10,500 operaciones, integridad PASS; gate transversal: `php tests/run_all.php` |
 | 8.5 | Completada | L0–L7: protocolo, seguridad, perfiles de clientes y distribución estática firmada/reproducible: `make -C sdk/cpp/lsp test` y `tests/test_jas_lsp_distribution.sh` |
 | 9 | Interna completada / externa pendiente | `php tests/test_jas_phase9.php`, `php tests/run_all.php` y `docs/JAS_SECURITY_VERIFICATION.md`; revisión criptográfica y penetration test independientes aún no realizados |
-| 10 | Pendiente | No iniciada |
+| 10 | Completada | Portal institucional, API 2.0 y continuidad: `php bin/jas analyze examples/reference_portal`, `php tests/test_jas_reference_portal.php`, `docs/API_STATUS.md` y `docs/JAS_2_0_MIGRATION.md` |
 
-La comprobación transversal vigente es `php tests/run_all.php`, cuyo resultado
-registrado es `JAS SUITE: PASS`.
+La comprobación transversal vigente es `php tests/run_all.php`; el 2026-07-18
+registró `JAS SUITE: PASS`. `make -C sdk/cpp/lsp test` y
+`tests/test_jas_lsp_distribution.sh` también pasaron con el paquete reproducible
+`jas-lsp-2.0.0-linux-x86_64.tar.gz`; Neovim GUI no estaba instalado en este
+runner y su prueba manual se reportó correctamente como `SKIP`.
 
 ## Próxima acción obligatoria
 
-Iniciar la Fase 10 con el primer incremento vertical de la aplicación de
-referencia mientras se encarga por separado la revisión criptográfica y el
-penetration test externos de Fase 9. Un informe externo futuro debe registrar
-alcance, versión, entorno, hallazgos, remediación y retest.
+Publicar JAS 2.0.0 y encargar la revisión criptográfica y el penetration test
+externos de Fase 9 sobre el commit y entorno concretos. El informe futuro debe
+registrar alcance, versión, entorno, hallazgos, remediación y retest. Esa
+validación independiente no puede autodeclararse desde este repositorio.
 
 ## Resumen de trabajo restante
 
@@ -563,6 +599,9 @@ alcance, versión, entorno, hallazgos, remediación y retest.
 - Puerta 8.5: completada íntegramente; L0–L7 cerradas según `JAS_LSP_PLAN.md`.
 - Fase 9: implementación y verificación interna completadas. Sólo permanecen la
   revisión criptográfica y el penetration test por especialistas independientes;
-  no pueden autodeclararse ni bloquear el inicio técnico de Fase 10.
-- Fase 10: pendiente completa; aplicación gubernamental/red social de referencia,
-  pruebas integrales, congelación de API 2.0 y guía de migración.
+  no pueden autodeclararse y son el assurance externo posterior a la entrega.
+- Fase 10: completada; portal institucional de referencia, prueba end-to-end y
+  carga, backup/restauración funcional, congelación API 2.0 y guía de migración.
+- Plan de implementación interno: completado. Sólo permanece el assurance
+  externo de Fase 9, que requiere especialistas independientes y un despliegue
+  objetivo; no existe pendiente crítico o alto conocido en la verificación interna.

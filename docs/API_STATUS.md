@@ -1,50 +1,72 @@
 # Estado de las API de JAS 2.0
 
-## Límite del núcleo
+Estado: **congelada desde 2026-07-18**
 
-La API oficial del motor es PHP puro. Tipos, rutinas, definiciones y persistencia
-se implementan dentro de PHP. JavaScript, Node y otros runtimes no forman parte
-del núcleo. Cualquier lenguaje externo usa un adaptador fuera de proceso y JASB,
-como los SDK C/C++, sin acceso directo a DataCore ni a internals del runtime.
+## Contrato de estabilidad
 
-Este inventario es normativo durante la consolidación. Una API estable conserva
-compatibilidad dentro de la versión mayor; una experimental puede cambiar con
-nota de migración; una heredada no puede usarse en código nuevo.
+La superficie estable de JAS 2.0 conserva compatibilidad durante toda la versión
+mayor. Las adiciones compatibles pueden publicarse en versiones menores; una
+eliminación, cambio de contrato o comportamiento incompatible exige JAS 3.0,
+reporte de `app:compat` y guía de migración. Los diagnósticos públicos conservan
+su código estable aunque el texto explicativo pueda mejorar.
 
-## Estables
+La API oficial del motor es PHP puro. JavaScript, Node y otros runtimes no forman
+parte del núcleo. Un lenguaje externo sólo puede usar un adaptador fuera de
+proceso y JASB, como los SDK C/C++, sin acceso directo a DataCore ni a internals.
 
-- `Jah\JAS\Definition`: definición tipada de aplicaciones, dominios, acciones y eventos.
-- `Jah\JAS\Type\TypeRegistry`: motor único de tipos y validación.
-- `Jah\JAS\Action\ActionScript`: motor único de acciones locales.
-- `Jah\JAS\Runtime`: ejecución gobernada, eventos y runtime binario.
-- `Jah\DataCore`: persistencia nativa, serialización PHP segura, transacciones y compactación.
-- `Jah\JAS\Security`: roles, capacidades, autenticación, replay, claves y doble control.
-- `Jah\JAS\Persistence`: WAL, outbox, auditoría, idempotencia y estado.
-- `Jah\JAS\Queue`: trabajos persistentes y servicio de colas.
-- `Jah\JAS\Web`: petición, respuesta, rutas, middleware, HTML seguro y formularios.
-- `Jah\JAS\Protocol` y `Jah\JAS\Transport`: protocolo binario y sobres cifrados SALK.
+## API pública estable 2.0
+
+- `Jah\JAS\Definition`: aplicaciones, dominios, acciones, eventos y compatibilidad.
+- `Jah\JAS\Type\TypeRegistry`: tipos, alias y validación de contratos.
+- `Jah\JAS\Action\ActionScript`: acciones locales tipadas.
+- `Jah\JAS\Runtime`: ejecución gobernada y procesamiento de eventos.
+- `Jah\DataCore`: persistencia, consultas indexadas, transacciones, migraciones,
+  cifrado, retención, SQL Mirror gobernado, backup y restauración.
+- `Jah\JAS\Security`: capacidades, identidad institucional, claves, replay y
+  doble control. Los adaptadores de federación/WebAuthn siguen siendo fronteras.
+- `Jah\JAS\Persistence`: WAL, outbox, auditoría, idempotencia y journals.
+- `Jah\JAS\Queue`: trabajos, leases, backpressure y colas persistentes.
+- `Jah\JAS\Web`: petición, respuesta, router, middleware, HTML seguro, formularios,
+  componentes, i18n, accesibilidad, uploads y streaming.
+- `Jah\JAS\Protocol` y `Jah\JAS\Transport`: JASB, JASL y sobres SALK.
+- `Jah\JAS\Diagnostics`: códigos, diagnósticos, redacción y límites de error.
+- `Jah\JAS\Tooling`: lector literal, generadores, analizador, formateador,
+  documentación, diagramas y ciclo de compatibilidad usados por `bin/jas`.
+- Comandos estables de `bin/jas`: `health`, `make:project`, `make:domain`,
+  `make:type`, `make:action`, `make:event`, `type:add-field`,
+  `domain:add-dependency`, `action:configure`, `format`, `analyze`, `app:docs`,
+  `app:diagram`, `app:compat`,
+  `diagnose`, `core:seal` y `core:verify`.
+
+La aplicación de referencia en `examples/reference_portal` usa únicamente esta
+superficie estable. La guía de actualización está en `docs/JAS_2_0_MIGRATION.md`.
 
 ## Experimentales
 
-- `Jah\JAS\Cluster`, `Consensus`, `Replication`, `Sharding`, `Snapshot`, `Sync` y `Balance`.
+- `Jah\JAS\Cluster`, `Consensus`, `Replication`, `Sharding`, `Snapshot`, `Sync`
+  y `Balance`.
 - `Jah\JAS\ObjectGraph` y `Jah\JAS\Dispatch`.
-- `Jah\JAS\Tooling` y la interfaz `bin/jas`.
-- `Jah\JAS\Observability`, incluidos los adaptadores externos de telemetría JASB.
+- `Jah\JAS\Observability` y adaptadores externos de telemetría JASB.
+- El servicio semántico binario y el bridge LSP C++ fuera de proceso.
+- SDK C/C++ y adaptadores WebAuthn, OIDC, SAML y LDAP.
 
-Estas API están probadas, pero no tendrán estabilidad contractual hasta completar
-las fases de continuidad, carga distribuida y experiencia de desarrollo.
+Una API experimental puede cambiar en una versión menor, siempre con nota de
+migración. No se incluye en la promesa de compatibilidad estable 2.0.
 
 ## Heredadas y aisladas
 
-- `php_actionscript_php_doc/`: prototipos históricos, ejemplos y compiladores experimentales.
-  No es parte del autoload ni del runtime oficial.
-- `JasContextRuntime` sustituyó completamente la identidad histórica del módulo de memoria.
-- Las clases bajo `app/memory`, `app/cache`, `app/http` y `app/security` pertenecen a
-  la aplicación de demostración, no a la API pública estable del framework.
+- `php_actionscript_php_doc/` contiene prototipos históricos fuera del autoload.
+- `AuthStore` se conserva sólo como proveedor de compatibilidad; los sistemas
+  nuevos usan `InstitutionalIdentityService` y DataCore cifrado.
+- Las clases bajo `app/memory`, `app/cache`, `app/http` y `app/security` son de la
+  aplicación histórica de demostración, no API pública del framework.
 
 ## Reglas de dependencia
 
-1. El código nuevo importa únicamente `Jah\JAS\*` y `Jah\DataCore\*`.
-2. Ninguna API estable carga archivos desde `php_actionscript_php_doc`.
-3. No se admiten formatos JSON en almacenamiento, protocolo o configuración operativa.
-4. Toda ruptura futura requiere reporte de compatibilidad y guía de migración.
+1. Código nuevo importa únicamente la API estable necesaria de `Jah\JAS\*` y
+   `Jah\DataCore\*`.
+2. Ninguna API estable carga prototipos históricos.
+3. El núcleo no admite JSON, JavaScript, Node, Composer ni ejecución de fuentes
+   analizadas como configuración.
+4. Toda ruptura futura requiere versión mayor, evidencia de compatibilidad y
+   guía de migración.

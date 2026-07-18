@@ -8,7 +8,7 @@ $salkConfig = require __DIR__ . '/salk.php';
 
 return [
     'motor' => 'JAH',
-    'version' => trim((string) @file_get_contents(dirname(__DIR__, 2) . '/VERSION')) ?: '1.4.0',
+    'version' => trim((string) @file_get_contents(dirname(__DIR__, 2) . '/VERSION')) ?: '2.0.0',
     'salk' => $salkConfig,
     'env' => (string) jah_env('JAH_ENV', 'production'),
     'timezone' => (string) jah_env('JAH_TIMEZONE', 'UTC'),

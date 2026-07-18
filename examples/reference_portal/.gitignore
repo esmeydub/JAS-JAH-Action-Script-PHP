@@ -1,3 +1,4 @@
 /.env
 /runtime/*
 !/runtime/.gitkeep
+/app/*/.jas-definitions.lock
