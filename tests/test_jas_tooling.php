@@ -14,6 +14,9 @@ $repository = dirname(__DIR__);
 $readme = file_get_contents($repository . '/README.md');
 $developmentProtocol = file_get_contents($repository . '/AGENTS.md');
 $learningProtocol = file_get_contents($repository . '/LEARN_JAS_WITH_SOL.md');
+$languageQuestion = '¿Qué idioma hablas y en qué idioma prefieres aprender JAS?';
+$languageQuestionPosition = is_string($learningProtocol) ? strpos($learningProtocol, $languageQuestion) : false;
+$repositoryStudyPosition = is_string($learningProtocol) ? strpos($learningProtocol, 'Abre y analiza el repositorio oficial.') : false;
 if (!is_string($readme)
     || !is_string($developmentProtocol)
     || !is_string($learningProtocol)
@@ -23,6 +26,11 @@ if (!is_string($readme)
     || !str_contains($developmentProtocol, 'docs/JAS_GETTING_STARTED.md')
     || !str_contains($developmentProtocol, 'bin/jas')
     || !str_contains($learningProtocol, 'JAS Interactive Teacher Protocol for SOL')
+    || $languageQuestionPosition === false
+    || $repositoryStudyPosition === false
+    || $languageQuestionPosition >= $repositoryStudyPosition
+    || !str_contains($learningProtocol, 'tu primera respuesta debe contener')
+    || !str_contains($learningProtocol, 'únicamente esta pregunta')
     || !str_contains($learningProtocol, 'Lee `VERSION`')
     || !str_contains($learningProtocol, 'docs/JAS_GETTING_STARTED.md')
     || !str_contains($learningProtocol, 'bin/jas')) {

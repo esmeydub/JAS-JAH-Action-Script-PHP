@@ -223,7 +223,9 @@ as one system rather than isolated files.
 - [`AGENTS.md`](AGENTS.md) is the development protocol for creating, reviewing
   and extending JAS applications with verified APIs and proportional security.
 - [`LEARN_JAS_WITH_SOL.md`](LEARN_JAS_WITH_SOL.md) is the interactive teaching
-  protocol for learning JAS from the installed version, examples and tests.
+  protocol for learning JAS from the installed version, examples and tests. Its
+  first question selects the student's language so the complete course,
+  exercises and feedback can be adapted before the technical evaluation begins.
 
 Both protocols treat the checked-out runtime and its executable tests as the
 technical source of truth. They guide development and learning only: neither SOL

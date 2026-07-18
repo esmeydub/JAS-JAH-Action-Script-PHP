@@ -335,6 +335,9 @@ Estado: **completada**
 - La implementación oficial nació limpia desde el núcleo JAS; una sesión
   exploratoria con Gemini reportada por el autor se registra sólo como el
   descubrimiento que motivó reducir gasto de contexto, no como código heredado.
+- `LEARN_JAS_WITH_SOL.md` pregunta primero el idioma de enseñanza y sólo después
+  analiza versión y nivel; explicaciones, prácticas y revisión se adaptan sin
+  traducir comandos, identificadores ni evidencia literal de JAS.
 - Pruebas negativas por código verifican contexto, HTTP, redacción, salida CLI,
   separación desarrollo/producción e integridad: `JAS DIAGNOSTICS: PASS`.
 
