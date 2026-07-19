@@ -7,11 +7,12 @@ same boundary as the C and C++ SDKs.
 
 ## A secure, typed application runtime for PHP
 
-**Hackathon category:** Developer Tools
-**Status:** JAS 2.0.0 — stable public API and deployable reference application
-**Development workflow:** Codex SOL, Medium reasoning effort
-**Build Week disclosure:** GPT-5.6 is part of the required hackathon evaluation,
-not a JAS runtime dependency
+- **Hackathon category:** Developer Tools
+- **Status:** JAS 2.0.0 — stable public API and deployable reference application
+- **Development workflow:** Codex with GPT-5.6 SOL, Medium reasoning effort
+- **Public demo:** [Taquería Viva — real 81-minute Codex build](https://youtu.be/r9wakYm8Y9Q)
+- **AI boundary:** Codex and GPT-5.6 participated during development and review;
+  neither is a JAS runtime dependency
 
 JAS — JAH Action Script PHP is an organized, typed layer over PHP for building web
 systems whose contracts, authorization, persistence and audit rules should not
@@ -176,7 +177,17 @@ The portal uses form input and `text/plain` responses, not JSON. Installation,
 routes, operations and disaster recovery are documented in
 [`examples/reference_portal/README.md`](examples/reference_portal/README.md).
 
-## Suggested three-minute demo path
+## OpenAI Build Week demo
+
+The public [2:53 demo video](https://youtu.be/r9wakYm8Y9Q) condenses a real
+83-minute-and-49-second recording containing an 81-minute Codex build of
+Taquería Viva. It preserves the user requests and final phase responses, shows
+the working server-rendered application and explains the development-time role
+of Codex and GPT-5.6. The application itself runs locally with PHP, JAS and
+authoritative DataCore persistence.
+
+For an independent repository walkthrough, judges can use this three-minute
+path:
 
 1. Run `php bin/jas health` to show JAS 2.0 and the local pure-PHP runtime.
 2. Run `php bin/jas analyze examples/reference_portal` to validate its definitions.
@@ -188,21 +199,21 @@ routes, operations and disaster recovery are documented in
 
 ## Codex SOL workflow and the role of GPT-5.6
 
-The repository work documented here was performed in **Codex SOL** with
-**Medium reasoning effort**. Codex SOL was the engineering workflow used to
+The repository work documented here was performed in **Codex with GPT-5.6 SOL**
+and **Medium reasoning effort**. Codex was the engineering workflow used to
 inspect the inherited PHP prototype, build a normative phase plan, refactor
 duplicated runtime concepts, implement missing security and recovery paths,
 generate adversarial tests, execute the suite and document measured
 limitations.
 
-OpenAI Build Week requires the submission to explain its relationship with
-**GPT-5.6**. For JAS, GPT-5.6 belongs to the hackathon's development-time review
-and evaluation requirement; it is not embedded in the product and is not a
+For JAS, **GPT-5.6** belongs to the development-time construction, review and
+hackathon evaluation workflow; it is not embedded in the product and is not a
 runtime dependency. The primary Codex conversation in which JAS was built has
 been closed through `/feedback`; its Session ID is retained for the private,
 required Devpost field and is intentionally not published in this repository.
-The demo video remains pending and must explain honestly how Codex and GPT-5.6
-participated in the development-time workflow.
+The [public demo](https://youtu.be/r9wakYm8Y9Q) documents how Codex and GPT-5.6
+participated and distinguishes the 81-minute build interval from the complete
+83-minute-and-49-second recording.
 
 Important human-directed decisions were preserved throughout the work:
 

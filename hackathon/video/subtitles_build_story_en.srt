@@ -1,0 +1,95 @@
+1
+00:00:00,050 --> 00:00:03,668
+Taqueria Viva was not generated from one vague prompt.
+
+2
+00:00:03,668 --> 00:00:10,474
+This real eighty-three-minute recording includes an eighty-one-minute Codex build, condensed to less than three minutes.
+
+3
+00:00:10,474 --> 00:00:21,099
+At 2:29 P.M., I asked Codex SOL, using medium reasoning effort and GPT-5.6, to clone JAS and study its AGENTS dot M D protocol.
+
+4
+00:00:21,099 --> 00:00:23,888
+Thirty-seven seconds later, Codex was ready.
+
+5
+00:00:23,888 --> 00:00:36,226
+I specified four roles, strict permissions, catalog, recipes, orders, kitchen, inventory, cash, reports, DataCore, and pure PHP without JavaScript or JSON.
+
+6
+00:00:36,226 --> 00:00:43,217
+Before coding, Codex inspected JAS 2.0, its real APIs, commands, and tests.
+
+7
+00:00:43,217 --> 00:00:48,749
+Its design separated explicit domains and kept MySQL outside the MVP.
+
+8
+00:00:48,749 --> 00:00:54,398
+Phase one built catalog and ingredients in twelve minutes and fifty-seven seconds.
+
+9
+00:00:54,398 --> 00:01:02,442
+The response reported forty-six changed files, contracts, capabilities, idempotency, audit events, and passing checks.
+
+10
+00:01:02,442 --> 00:01:12,083
+Phase two added typed recipes in four minutes and fifty-two seconds, with unit compatibility, references, optimistic updates, and negative tests.
+
+11
+00:01:12,083 --> 00:01:19,328
+Phase three added orders, frozen prices, transactional confirmation, and atomic inventory deduction.
+
+12
+00:01:19,328 --> 00:01:24,548
+Phase four delivered kitchen, purchases, waste, alerts, and governed transitions.
+
+13
+00:01:24,548 --> 00:01:30,277
+Phase five added shifts, payments, cancellations, cash reconciliation, and reports.
+
+14
+00:01:30,277 --> 00:01:40,578
+Phase six created the server-rendered application with encrypted identity, revocable sessions, role screens, CSRF protection, secure headers, and no JavaScript.
+
+15
+00:01:40,578 --> 00:01:49,004
+Phase seven added concurrency tests, duplicate-payment protection, encrypted backups, coordinated snapshots, and safe restoration.
+
+16
+00:01:49,004 --> 00:01:55,381
+Its response records one hundred sixty-seven file verifications and phases one through seven passing.
+
+17
+00:01:55,381 --> 00:02:06,828
+The first request was at 2:29 P.M. Phase seven finished at 3:50 P.M. Codex built and verified the system in eighty-one minutes; the remaining recording demonstrated it.
+
+18
+00:02:06,828 --> 00:02:10,393
+Afterward, I asked Codex: how was programming with JAS?
+
+19
+00:02:10,393 --> 00:02:17,476
+Its candid answer said JAS forced it to think in contracts, capabilities, transactions, and invariants.
+
+20
+00:02:17,476 --> 00:02:22,662
+It praised DataCore, governed actions, idempotency, audit, and strict types.
+
+21
+00:02:22,662 --> 00:02:30,138
+It also identified real costs: explicit definitions, careful indexes, and coordinated backup complexity.
+
+22
+00:02:30,138 --> 00:02:35,462
+Codex concluded that this discipline helps an MVP grow without becoming disorganized.
+
+23
+00:02:35,462 --> 00:02:42,048
+Codex and GPT-5.6 accelerated development, but they are not runtime dependencies.
+
+24
+00:02:42,048 --> 00:02:48,344
+Taqueria Viva runs locally with PHP, JAS, and authoritative DataCore persistence.

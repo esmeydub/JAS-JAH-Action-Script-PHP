@@ -614,9 +614,14 @@ validación independiente no puede autodeclararse desde este repositorio.
 - Código, documentación, portal de referencia, pruebas y CI: completados.
 - Session ID de `/feedback` de la conversación principal: obtenido y reservado
   para el campo privado de Devpost; no se publica en el repositorio.
-- Ficha pública y respuestas técnicas de Devpost: preparadas.
-- Único entregable pendiente antes del envío final: video público de demostración
-  de menos de tres minutos que cubra el producto y el uso de Codex y GPT-5.6.
+- Video público de demostración: publicado, verificado externamente y dentro del
+  límite con 2:53 de duración: <https://youtu.be/r9wakYm8Y9Q>.
+- Ficha pública, instrucciones para jueces y respuestas técnicas de Devpost:
+  completadas y enviadas a OpenAI Build Week el 2026-07-18.
+- Estado de Devpost: `Submitted`; submission ID `1098042`:
+  <https://devpost.com/software/jas-jah-action-script-php-7t48ci>.
+- Entrega del hackathon: completada. Puede actualizarse hasta el cierre si una
+  verificación posterior descubre una inconsistencia real.
 - La revisión criptográfica y el penetration test externos de Fase 9 permanecen
   como assurance independiente posterior; no se confunden con el video ni con
   la terminación de la implementación interna.

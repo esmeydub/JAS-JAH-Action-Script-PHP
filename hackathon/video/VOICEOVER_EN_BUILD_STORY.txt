@@ -1,0 +1,23 @@
+Taqueria Viva was not generated from one vague prompt. This real eighty-three-minute recording includes an eighty-one-minute Codex build, condensed to less than three minutes.
+
+At 2:29 P.M., I asked Codex SOL, using medium reasoning effort and GPT-5.6, to clone JAS and study its AGENTS dot M D protocol. Thirty-seven seconds later, Codex was ready.
+
+I specified four roles, strict permissions, catalog, recipes, orders, kitchen, inventory, cash, reports, DataCore, and pure PHP without JavaScript or JSON.
+
+Before coding, Codex inspected JAS 2.0, its real APIs, commands, and tests. Its design separated explicit domains and kept MySQL outside the MVP.
+
+Phase one built catalog and ingredients in twelve minutes and fifty-seven seconds. The response reported forty-six changed files, contracts, capabilities, idempotency, audit events, and passing checks.
+
+Phase two added typed recipes in four minutes and fifty-two seconds, with unit compatibility, references, optimistic updates, and negative tests.
+
+Phase three added orders, frozen prices, transactional confirmation, and atomic inventory deduction. Phase four delivered kitchen, purchases, waste, alerts, and governed transitions.
+
+Phase five added shifts, payments, cancellations, cash reconciliation, and reports. Phase six created the server-rendered application with encrypted identity, revocable sessions, role screens, CSRF protection, secure headers, and no JavaScript.
+
+Phase seven added concurrency tests, duplicate-payment protection, encrypted backups, coordinated snapshots, and safe restoration. Its response records one hundred sixty-seven file verifications and phases one through seven passing.
+
+The first request was at 2:29 P.M. Phase seven finished at 3:50 P.M. Codex built and verified the system in eighty-one minutes; the remaining recording demonstrated it.
+
+Afterward, I asked Codex: how was programming with JAS? Its candid answer said JAS forced it to think in contracts, capabilities, transactions, and invariants. It praised DataCore, governed actions, idempotency, audit, and strict types. It also identified real costs: explicit definitions, careful indexes, and coordinated backup complexity. Codex concluded that this discipline helps an MVP grow without becoming disorganized.
+
+Codex and GPT-5.6 accelerated development, but they are not runtime dependencies. Taqueria Viva runs locally with PHP, JAS, and authoritative DataCore persistence.
